@@ -183,11 +183,15 @@ function renderJoin(drawId, inviteSecret) {
       <p id="group-state" class="state-line"></p>
       <a id="invite-result-link" class="button button-primary button-wide" href="#" hidden>Vai al tuo abbinamento</a>
       <details class="returning-participant">
-        <summary>Già iscritto? Apri il tuo abbinamento</summary>
+        <summary>
+          <strong>Hai già partecipato?</strong>
+          <span>Apri questa sezione e inserisci il codice personale che hai salvato.</span>
+        </summary>
+        <p class="returning-help">Non serve iscriversi di nuovo. Il codice collega la tua iscrizione a questo dispositivo e apre il risultato se il sorteggio è già stato fatto.</p>
         <form id="returning-form" class="stack-form">
           <label for="returning-code">Codice personale</label>
-          <input id="returning-code" autocomplete="off" spellcheck="false" placeholder="Inserisci il codice salvato" required>
-          <button class="button button-secondary button-wide" type="submit">Continua</button>
+          <input id="returning-code" autocomplete="off" spellcheck="false" placeholder="Incolla qui il codice personale" required>
+          <button class="button button-secondary button-wide" type="submit">Collega la mia iscrizione</button>
           <p id="returning-error" class="message error" role="alert" hidden></p>
         </form>
       </details>
