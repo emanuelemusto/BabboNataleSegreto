@@ -23,6 +23,31 @@ function routeUrl(kind, ...segments) {
   return `${pageUrl}#${kind}/${segments.map(encodeURIComponent).join("/")}`;
 }
 
+function participantSessionKey(drawId) {
+  return `secret-santa:${drawId}`;
+}
+
+function saveParticipantSession(drawId, participantId, accessCode) {
+  try {
+    localStorage.setItem(participantSessionKey(drawId), JSON.stringify({ participantId, accessCode }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getParticipantSession(drawId, participantId) {
+  try {
+    const saved = localStorage.getItem(participantSessionKey(drawId));
+    if (!saved) return null;
+    const session = JSON.parse(saved);
+    if (!session || (participantId && session.participantId !== participantId) || typeof session.accessCode !== "string") return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
 function firstRow(result) {
   if (!Array.isArray(result) || !result.length) {
     throw new Error("Risposta Supabase non valida. Controlla la migrazione del database.");
@@ -146,7 +171,7 @@ function renderJoin(drawId, inviteSecret) {
           <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
           <a id="my-result-link" class="button button-primary button-wide" href="#">Apri il tuo abbinamento</a>
           <p id="copy-error" class="message error" role="alert" hidden></p>
-          <p class="tiny-note">Il link contiene il tuo codice personale: conservalo e non condividerlo. L’organizzatore non può recuperare il codice.</p>
+          <p class="tiny-note">Il browser salva il codice su questo dispositivo. Conservalo comunque come alternativa: l’organizzatore non può recuperarlo.</p>
         </div>
       </div>
       <form id="join-form" class="stack-form">
@@ -156,6 +181,7 @@ function renderJoin(drawId, inviteSecret) {
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
       <p id="group-state" class="state-line"></p>
+      <a id="invite-result-link" class="button button-primary button-wide" href="#" hidden>Vai al tuo abbinamento</a>
     </section>`;
 
   const title = document.querySelector("#group-title");
@@ -168,9 +194,19 @@ function renderJoin(drawId, inviteSecret) {
         p_invite_secret: inviteSecret,
       }));
       title.textContent = current.draw_title;
+      const savedSession = getParticipantSession(drawId, null);
       state.textContent = current.draw_status === "open"
         ? `${current.participant_count} ${Number(current.participant_count) === 1 ? "persona nel gruppo" : "persone nel gruppo"} · ci si può ancora aggiungere`
-        : "Il sorteggio è fatto: non ci si può più iscrivere.";
+        : savedSession
+          ? "Sorteggio completato. Puoi aprire il tuo abbinamento qui sotto."
+          : "Sorteggio completato. Per vedere il tuo risultato, apri il link personale che hai salvato.";
+      const resultLink = document.querySelector("#invite-result-link");
+      if (current.draw_status === "drawn" && savedSession) {
+        resultLink.href = routeUrl("result", drawId, savedSession.participantId);
+        resultLink.hidden = false;
+      } else {
+        resultLink.hidden = true;
+      }
       form.hidden = current.draw_status !== "open" || !document.querySelector("#joined-panel").hidden;
     } catch (reason) {
       form.hidden = true;
@@ -197,9 +233,14 @@ function renderJoin(drawId, inviteSecret) {
         p_private_key_iv: credentials.privateKeyIv,
         p_access_hash: await hashSecret(credentials.accessCode, "hex"),
       }));
+      const sessionSaved = saveParticipantSession(drawId, result.participant_id, credentials.accessCode);
       document.querySelector("#group-title").textContent = result.draw_title;
       document.querySelector("#personal-code").value = credentials.accessCode;
-      document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id, credentials.accessCode);
+      document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id);
+      if (!sessionSaved) {
+        document.querySelector("#copy-error").textContent = "La sessione non è disponibile in questo browser. Conserva il codice: ti servirà per aprire il risultato.";
+        document.querySelector("#copy-error").hidden = false;
+      }
       document.querySelector("#joined-panel").hidden = false;
       form.hidden = true;
       copyButtons();
@@ -226,12 +267,15 @@ function renderNotFound() {
 
 function renderResult(drawId, participantId, accessCode) {
   stopRefresh();
+  const savedSession = accessCode ? null : getParticipantSession(drawId, participantId);
+  const sessionCode = savedSession?.accessCode;
+  const initialCode = accessCode || sessionCode;
   app.innerHTML = `
     <section class="result-card result-reveal">
       <p class="eyebrow">AREA PERSONALE</p>
       <h1 id="result-title">Il tuo<br><span>abbinamento.</span></h1>
-      <p class="hero-copy">${accessCode ? "Stiamo recuperando il tuo abbinamento. Solo tu puoi vedere il risultato." : "Inserisci il codice personale che hai salvato quando ti sei iscritto. Solo tu puoi vedere il risultato."}</p>
-      <form id="result-form" class="stack-form">
+      <p class="hero-copy">${initialCode ? "Stiamo recuperando il tuo abbinamento. Solo tu puoi vedere il risultato." : "Il risultato è disponibile nella sessione in cui ti sei iscritto. In alternativa, inserisci il codice personale."}</p>
+      <form id="result-form" class="stack-form" ${initialCode ? "hidden" : ""}>
         <label for="access-code">Codice personale</label>
         <input id="access-code" autocomplete="off" spellcheck="false" placeholder="Incolla il tuo codice" required>
         <button class="button button-primary button-wide" type="submit">Visualizza abbinamento</button>
@@ -244,7 +288,7 @@ function renderResult(drawId, participantId, accessCode) {
       </div>
     </section>`;
   const form = document.querySelector("#result-form");
-  if (accessCode) document.querySelector("#access-code").value = accessCode;
+  if (initialCode) document.querySelector("#access-code").value = initialCode;
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = event.currentTarget.querySelector("button");
@@ -269,11 +313,12 @@ function renderResult(drawId, participantId, accessCode) {
       event.currentTarget.hidden = true;
     } catch (reason) {
       message(error, reason);
+      if (initialCode) event.currentTarget.hidden = false;
     } finally {
       button.disabled = false;
     }
   });
-  if (accessCode) form.requestSubmit();
+  if (initialCode) form.requestSubmit();
 }
 
 function renderManager(drawId, organizerSecret, inviteSecret) {
