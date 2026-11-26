@@ -85,6 +85,7 @@ input:focus { border-color: #839a8a; box-shadow: 0 0 0 3px rgba(67, 110, 85, .12
 .status-pill { padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: white; color: var(--ink); font-size: 9px; font-weight: 700; }
 .draw-notice { margin: -7px 0 17px; padding: 12px 14px; border: 1px solid #e6d5bd; border-left: 3px solid #a56b31; border-radius: 3px; background: #fbf5eb; color: #69471f; font-size: 12px; font-weight: 600; line-height: 1.55; }
 .draw-notice-complete { border-color: #d5ddd6; border-left-color: var(--green); background: var(--green-pale); color: var(--green); }
+.participant-draw-notice { margin: 18px 0 0; text-align: left; }
 .participant-list { display: grid; gap: 7px; margin-bottom: 18px; }
 .participant-item { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; }
 .participant-actions { display: flex; align-items: center; gap: 8px; }

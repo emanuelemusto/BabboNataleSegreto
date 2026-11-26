@@ -180,7 +180,7 @@ function renderJoin(drawId, inviteSecret) {
         <button class="button button-primary button-wide" type="submit">Partecipa al sorteggio</button>
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
-      <p id="group-state" class="state-line"></p>
+      <p id="group-state" class="draw-notice participant-draw-notice" role="status">Verifica stato sorteggio…</p>
       <a id="invite-result-link" class="button button-primary button-wide" href="#" hidden>Vai al tuo abbinamento</a>
       <details class="returning-participant">
         <summary>
@@ -209,10 +209,13 @@ function renderJoin(drawId, inviteSecret) {
       title.textContent = current.draw_title;
       const savedSession = getParticipantSession(drawId, null);
       state.textContent = current.draw_status === "open"
-        ? `${current.participant_count} ${Number(current.participant_count) === 1 ? "persona nel gruppo" : "persone nel gruppo"} · ci si può ancora aggiungere`
+        ? savedSession
+          ? "Il sorteggio non è ancora stato effettuato. Sei già iscritto: torna qui quando l’organizzatore lo avrà avviato."
+          : `Il sorteggio non è ancora stato effettuato. Ci sono ${current.participant_count} ${Number(current.participant_count) === 1 ? "persona iscritta" : "persone iscritte"} e le iscrizioni sono ancora aperte.`
         : savedSession
           ? "Sorteggio completato. Puoi aprire il tuo abbinamento qui sotto."
           : "Sorteggio completato. Per vedere il tuo risultato, apri il link personale che hai salvato.";
+      state.classList.toggle("draw-notice-complete", current.draw_status === "drawn");
       const resultLink = document.querySelector("#invite-result-link");
       document.querySelector(".returning-participant").hidden = Boolean(savedSession);
       if (current.draw_status === "drawn" && savedSession) {
@@ -222,9 +225,6 @@ function renderJoin(drawId, inviteSecret) {
         resultLink.hidden = true;
       }
       form.hidden = current.draw_status !== "open" || Boolean(savedSession) || !document.querySelector("#joined-panel").hidden;
-      if (savedSession && current.draw_status === "open") {
-        state.textContent = "Sei già iscritto da questo dispositivo. Il tuo abbinamento apparirà qui quando il sorteggio sarà pronto.";
-      }
     } catch (reason) {
       form.hidden = true;
       message(state, reason);
