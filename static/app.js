@@ -62,19 +62,19 @@ function renderHome() {
   app.innerHTML = `
     <section class="hero-card">
       <div class="hero-ornament" aria-hidden="true"><span>✳</span></div>
-      <p class="eyebrow">BABBO NATALE SEGRETO · EDIZIONE 2026</p>
-      <h1>Un regalo.<br>Una persona.<br><span>Tutto segreto.</span></h1>
-      <p class="hero-copy">Organizza il sorteggio con il tuo gruppo. Ognuno scoprirà soltanto a chi fare il regalo; nemmeno chi organizza vedrà gli abbinamenti.</p>
+      <p class="eyebrow">BABBO NATALE SEGRETO, TRA AMICI</p>
+      <h1>Un regalo<br>per un amico.<br><span>E resta segreto.</span></h1>
+      <p class="hero-copy">Organizza il sorteggio con i tuoi amici. Ognuno scoprirà chi gli è capitato; chi organizza non vedrà gli abbinamenti.</p>
       <form id="create-form" class="create-form">
-        <label for="title">Nome del gruppo</label>
-        <div class="create-row"><input id="title" maxlength="80" placeholder="es. Natale in famiglia" autocomplete="off" required><button class="button button-primary" type="submit">Crea gruppo <span aria-hidden="true">→</span></button></div>
+        <label for="title">Come si chiama il vostro gruppo?</label>
+        <div class="create-row"><input id="title" maxlength="80" placeholder="es. Amici del liceo" autocomplete="off" required><button class="button button-primary" type="submit">Crea il gruppo <span aria-hidden="true">→</span></button></div>
         <p id="create-error" class="message error" role="alert" hidden></p>
       </form>
     </section>
     <section class="how-grid" aria-label="Come funziona">
-      <article class="how-card"><span class="step-number">01</span><h2>Crea il gruppo</h2><p>Condividi l’invito e conserva il tuo link organizzatore.</p></article>
-      <article class="how-card"><span class="step-number">02</span><h2>Raccogli le adesioni</h2><p>Ognuno si iscrive dal proprio dispositivo, senza passaggi manuali.</p></article>
-      <article class="how-card"><span class="step-number">03</span><h2>Avvia il sorteggio</h2><p>Ogni partecipante vede solo il proprio destinatario.</p></article>
+      <article class="how-card"><span class="step-number">01</span><h2>Crea il gruppo</h2><p>Prepara l’invito e tieni per te il link per organizzare.</p></article>
+      <article class="how-card"><span class="step-number">02</span><h2>Invita gli amici</h2><p>Ognuno si aggiunge dal proprio telefono, con il suo nome.</p></article>
+      <article class="how-card"><span class="step-number">03</span><h2>Fate il sorteggio</h2><p>Ognuno scopre in privato chi gli è capitato.</p></article>
     </section>
     <p id="setup-note" class="setup-note" hidden>La configurazione del database non è ancora completata.</p>`;
   const configured = isSupabaseConfigured();
@@ -113,14 +113,14 @@ function showCreatedGroup(drawId, title, inviteSecret, organizerSecret) {
     <section class="result-card created-card">
       <p class="eyebrow">GRUPPO CREATO</p>
       <h1>${escapeHtml(title)}<br><span>è pronto.</span></h1>
-      <p class="hero-copy">Condividi il link d’invito con i partecipanti. Conserva privatamente il link per gestire il sorteggio.</p>
-      <label for="invite-link">LINK D’INVITO</label>
+      <p class="hero-copy">Manda il link d’invito nella chat del gruppo. Tieni per te il link organizzatore.</p>
+      <label for="invite-link">LINK DA MANDARE AGLI AMICI</label>
       <div class="copy-row"><input id="invite-link" readonly><button class="button button-secondary" data-copy="invite-link">Copia</button></div>
-      <label for="organizer-link">LINK ORGANIZZATORE · PRIVATO</label>
+      <label for="organizer-link">IL TUO LINK PER ORGANIZZARE · PRIVATO</label>
       <div class="copy-row"><input id="organizer-link" readonly><button class="button button-secondary" data-copy="organizer-link">Copia</button></div>
       <p id="copy-error" class="message error" role="alert" hidden></p>
-      <a class="button button-primary button-wide" href="${organizerUrl}">Apri il pannello organizzatore <span aria-hidden="true">→</span></a>
-      <p class="tiny-note">Chi possiede il link organizzatore può gestire questo gruppo. Non condividerlo.</p>
+      <a class="button button-primary button-wide" href="${organizerUrl}">Gestisci il gruppo <span aria-hidden="true">→</span></a>
+      <p class="tiny-note">Con questo link puoi gestire il gruppo. Non mandarlo nella chat degli amici.</p>
     </section>`;
   document.querySelector("#invite-link").value = inviteUrl;
   document.querySelector("#organizer-link").value = organizerUrl;
@@ -141,20 +141,20 @@ function renderJoin(drawId, inviteSecret) {
       <div class="card-ornament" aria-hidden="true">✳</div>
       <p class="eyebrow">INVITO AL SORTEGGIO</p>
       <h1 id="group-title">Caricamento…</h1>
-      <p class="hero-copy">Iscriviti con il tuo nome. Quando il sorteggio sarà pronto, potrai consultare il tuo abbinamento da qui.</p>
+      <p class="hero-copy">Aggiungi il tuo nome alla lista. Quando il sorteggio è pronto, torna qui per scoprire chi ti è capitato.</p>
       <div id="joined-panel" class="joined-panel" hidden>
         <span class="joined-mark" aria-hidden="true">✓</span>
-        <div><h2>Iscrizione completata</h2><p>Conserva il tuo codice personale: ti servirà per consultare l’abbinamento.</p>
+        <div><h2>Ci sei!</h2><p>Salva il tuo codice personale: ti servirà per vedere chi ti è capitato.</p>
           <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
-          <a id="my-result-link" class="button button-primary button-wide" href="#">Apri il tuo risultato <span aria-hidden="true">→</span></a>
+          <a id="my-result-link" class="button button-primary button-wide" href="#">Vai al tuo sorteggio <span aria-hidden="true">→</span></a>
           <p id="copy-error" class="message error" role="alert" hidden></p>
-          <p class="tiny-note">Il codice è personale. Non condividerlo, nemmeno con l’organizzatore.</p>
+          <p class="tiny-note">È un codice personale: tienilo per te, anche l’organizzatore non può recuperarlo.</p>
         </div>
       </div>
       <form id="join-form" class="stack-form">
         <label for="name">Il tuo nome</label>
         <input id="name" maxlength="80" autocomplete="name" placeholder="Nome e cognome" required>
-        <button class="button button-primary button-wide" type="submit">Iscriviti al sorteggio <span aria-hidden="true">→</span></button>
+        <button class="button button-primary button-wide" type="submit">Aggiungimi al gruppo <span aria-hidden="true">→</span></button>
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
       <p id="group-state" class="state-line"></p>
@@ -171,8 +171,8 @@ function renderJoin(drawId, inviteSecret) {
       }));
       title.textContent = current.draw_title;
       state.textContent = current.draw_status === "open"
-        ? `${current.participant_count} ${Number(current.participant_count) === 1 ? "persona iscritta" : "persone iscritte"} · iscrizioni aperte`
-        : "Il sorteggio è partito: le iscrizioni sono chiuse.";
+        ? `${current.participant_count} ${Number(current.participant_count) === 1 ? "persona nel gruppo" : "persone nel gruppo"} · ci si può ancora aggiungere`
+        : "Il sorteggio è fatto: non ci si può più iscrivere.";
       form.hidden = current.draw_status !== "open" || !document.querySelector("#joined-panel").hidden;
     } catch (reason) {
       form.hidden = true;
@@ -234,17 +234,17 @@ function renderResult(drawId, participantId) {
       <div class="card-ornament" aria-hidden="true">✳</div>
       <p class="eyebrow">AREA PERSONALE</p>
       <h1 id="result-title">Il tuo<br><span>abbinamento.</span></h1>
-      <p class="hero-copy">Inserisci il codice personale scelto al momento dell’iscrizione. Solo tu puoi consultare il destinatario.</p>
+      <p class="hero-copy">Inserisci il codice personale che hai salvato quando ti sei iscritto. Solo tu puoi vedere il risultato.</p>
       <form id="result-form" class="stack-form">
         <label for="access-code">Codice personale</label>
         <input id="access-code" autocomplete="off" spellcheck="false" placeholder="Incolla il tuo codice" required>
-        <button class="button button-primary button-wide" type="submit">Mostra il destinatario <span aria-hidden="true">→</span></button>
+        <button class="button button-primary button-wide" type="submit">Scopri chi ti è capitato <span aria-hidden="true">→</span></button>
         <p id="result-error" class="message error" role="alert" hidden></p>
       </form>
       <div id="assignment" class="assignment" hidden>
-        <span class="eyebrow">IL TUO DESTINATARIO</span>
+        <span class="eyebrow">A TE È CAPITATO</span>
         <p id="recipient" class="recipient"></p>
-        <p class="tiny-note">Conserva il segreto fino al momento dello scambio.</p>
+        <p class="tiny-note">Ora non dirlo agli altri fino allo scambio dei regali.</p>
       </div>
     </section>`;
   document.querySelector("#result-form").addEventListener("submit", async (event) => {
@@ -284,17 +284,17 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
     <section class="result-card organizer-card">
       <div class="eyebrow-row"><span class="eyebrow">PANNELLO ORGANIZZATORE</span><span class="admin-badge">ACCESSO PRIVATO</span></div>
       <h1 id="manager-title">Un attimo…</h1>
-      <p class="hero-copy">I partecipanti possono iscriversi da qualsiasi dispositivo. Avvia il sorteggio quando il gruppo è pronto; non vedrai gli abbinamenti.</p>
-      <div class="manager-stats"><div><span>PARTECIPANTI</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
+      <p class="hero-copy">Manda l’invito nella chat e aspetta che si aggiungano tutti. Quando siete pronti, avvia il sorteggio: non vedrai chi è capitato a ciascuno.</p>
+      <div class="manager-stats"><div><span>AMICI NEL GRUPPO</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
       <div id="participants" class="participant-list"></div>
       <div class="actions">
-        <button id="draw-button" class="button button-primary button-wide" type="button">Avvia il sorteggio <span aria-hidden="true">→</span></button>
-        <button id="reset-button" class="button button-secondary button-wide" type="button">Azzera il gruppo</button>
+        <button id="draw-button" class="button button-primary button-wide" type="button">Fai il sorteggio <span aria-hidden="true">→</span></button>
+        <button id="reset-button" class="button button-secondary button-wide" type="button">Svuota il gruppo</button>
       </div>
       <p id="manager-message" class="message success-message" role="status" hidden></p>
       <p id="manager-error" class="message error" role="alert" hidden></p>
       <div class="share-box">
-        <label for="invite-link">LINK DA INVIARE ALLA CREW</label>
+        <label for="invite-link">INVITO DA GIRARE NELLA CHAT</label>
         <div class="copy-row"><input id="invite-link" readonly><button class="button button-secondary" data-copy="invite-link">Copia</button></div>
         <p id="copy-error" class="message error" role="alert" hidden></p>
       </div>
@@ -315,7 +315,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
       const state = await adminState();
       document.querySelector("#manager-title").textContent = state.draw_title;
       document.querySelector("#participant-count").textContent = state.participant_count;
-      document.querySelector("#draw-status").textContent = state.draw_status === "drawn" ? "Sorteggio partito" : "Iscrizioni aperte";
+      document.querySelector("#draw-status").textContent = state.draw_status === "drawn" ? "Sorteggio fatto" : "Ci si può iscrivere";
       document.querySelector("#invite-link").value = routeUrl("join", drawId, inviteSecret);
       document.querySelector("#draw-button").disabled = busy || state.draw_status !== "open" || state.participant_count < 2;
       document.querySelector("#reset-button").disabled = busy || (state.draw_status === "open" && state.participant_count === 0);
@@ -333,7 +333,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         name.textContent = participant.name;
         const joined = document.createElement("span");
         joined.className = "participant-check";
-        joined.textContent = "ISCRITTO";
+        joined.textContent = "CI SONO";
         row.append(name, joined);
         container.append(row);
       }
@@ -352,7 +352,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
     try {
       const state = await adminState();
       if (state.draw_status !== "open" || state.participant_count < 2) {
-        throw new Error("Servono almeno due iscritti e le iscrizioni devono essere aperte.");
+        throw new Error("Servono almeno due amici e le iscrizioni devono essere aperte.");
       }
       const participantResponse = firstRow(await callRpc("santa_organizer_participants", {
         p_draw_id: drawId,
@@ -376,7 +376,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         p_organizer_secret: organizerSecret,
         p_assignments: assignments,
       });
-      message(statusMessage, "Sorteggio completato. Ogni partecipante può consultare il proprio abbinamento.");
+      message(statusMessage, "Fatto! Ognuno può aprire il proprio link e vedere chi gli è capitato.");
     } catch (reason) {
       message(error, reason);
     } finally {
@@ -386,7 +386,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
   });
 
   document.querySelector("#reset-button").addEventListener("click", async () => {
-    if (!window.confirm("Azzerare il gruppo? Le iscrizioni e il sorteggio verranno cancellati.")) return;
+    if (!window.confirm("Svuotare il gruppo? Verranno cancellati i nomi e, se già fatto, anche il sorteggio.")) return;
     busy = true;
     error.hidden = true;
     statusMessage.hidden = true;
@@ -395,7 +395,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         p_draw_id: drawId,
         p_organizer_secret: organizerSecret,
       });
-      message(statusMessage, "Gruppo azzerato. Le iscrizioni sono nuovamente aperte.");
+      message(statusMessage, "Gruppo svuotato. Gli amici possono iscriversi di nuovo.");
     } catch (reason) {
       message(error, reason);
     } finally {
