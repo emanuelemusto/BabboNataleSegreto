@@ -61,25 +61,22 @@ function renderHome() {
   stopRefresh();
   app.innerHTML = `
     <section class="hero-card">
-      <div class="hero-sticker" aria-hidden="true">🎁</div>
-      <p class="eyebrow">LA MAGIA È NEL SEGRETO</p>
-      <h1>Regali, risate<br>e zero <span>spoiler.</span></h1>
-      <p class="hero-copy">Crea il tuo gruppo, invita la crew e lascia fare al sorteggio. Il tuo nome resta fuori dai radar: ricevi solo il tuo destinatario.</p>
+      <div class="hero-ornament" aria-hidden="true"><span>✳</span></div>
+      <p class="eyebrow">BABBO NATALE SEGRETO · EDIZIONE 2026</p>
+      <h1>Un regalo.<br>Una persona.<br><span>Tutto segreto.</span></h1>
+      <p class="hero-copy">Organizza il sorteggio con il tuo gruppo. Ognuno scoprirà soltanto a chi fare il regalo; nemmeno chi organizza vedrà gli abbinamenti.</p>
       <form id="create-form" class="create-form">
-        <label for="title">Dai un nome alla serata</label>
-        <div class="create-row">
-          <input id="title" maxlength="80" placeholder="Natale in famiglia…" autocomplete="off" required>
-          <button class="button button-primary" type="submit">Crea il gruppo <span aria-hidden="true">↗</span></button>
-        </div>
+        <label for="title">Nome del gruppo</label>
+        <div class="create-row"><input id="title" maxlength="80" placeholder="es. Natale in famiglia" autocomplete="off" required><button class="button button-primary" type="submit">Crea gruppo <span aria-hidden="true">→</span></button></div>
         <p id="create-error" class="message error" role="alert" hidden></p>
       </form>
     </section>
     <section class="how-grid" aria-label="Come funziona">
-      <article class="how-card"><span class="step-number">01</span><span class="step-icon" aria-hidden="true">🪄</span><h2>Crea la crew</h2><p>Un link per il gruppo, un link privato per te.</p></article>
-      <article class="how-card"><span class="step-number">02</span><span class="step-icon" aria-hidden="true">🙋</span><h2>Fatevi sotto</h2><p>Ognuno si iscrive dal suo telefono, in un attimo.</p></article>
-      <article class="how-card"><span class="step-number">03</span><span class="step-icon" aria-hidden="true">🤫</span><h2>Shhh… sorpresa!</h2><p>Il risultato arriva al diretto interessato, non all’organizzatore.</p></article>
+      <article class="how-card"><span class="step-number">01</span><h2>Crea il gruppo</h2><p>Condividi l’invito e conserva il tuo link organizzatore.</p></article>
+      <article class="how-card"><span class="step-number">02</span><h2>Raccogli le adesioni</h2><p>Ognuno si iscrive dal proprio dispositivo, senza passaggi manuali.</p></article>
+      <article class="how-card"><span class="step-number">03</span><h2>Avvia il sorteggio</h2><p>Ogni partecipante vede solo il proprio destinatario.</p></article>
     </section>
-    <p id="setup-note" class="setup-note" hidden>Ultimo passaggio: configura il progetto Supabase per attivare i gruppi condivisi.</p>`;
+    <p id="setup-note" class="setup-note" hidden>La configurazione del database non è ancora completata.</p>`;
   const configured = isSupabaseConfigured();
   document.querySelector("#setup-note").hidden = configured;
   document.querySelector("#create-form button").disabled = !configured;
@@ -114,17 +111,16 @@ function showCreatedGroup(drawId, title, inviteSecret, organizerSecret) {
   const organizerUrl = routeUrl("manage", drawId, organizerSecret, inviteSecret);
   app.innerHTML = `
     <section class="result-card created-card">
-      <div class="success-burst" aria-hidden="true">✨</div>
-      <p class="eyebrow">GRUPPO IN PISTA</p>
-      <h1>${escapeHtml(title)}<br><span>è online!</span></h1>
-      <p class="hero-copy">Manda il link alla crew. Tieni il tuo link organizzatore super segreto.</p>
-      <label for="invite-link">LINK PER IL GRUPPO</label>
+      <p class="eyebrow">GRUPPO CREATO</p>
+      <h1>${escapeHtml(title)}<br><span>è pronto.</span></h1>
+      <p class="hero-copy">Condividi il link d’invito con i partecipanti. Conserva privatamente il link per gestire il sorteggio.</p>
+      <label for="invite-link">LINK D’INVITO</label>
       <div class="copy-row"><input id="invite-link" readonly><button class="button button-secondary" data-copy="invite-link">Copia</button></div>
-      <label for="organizer-link">IL TUO LINK PRIVATO</label>
+      <label for="organizer-link">LINK ORGANIZZATORE · PRIVATO</label>
       <div class="copy-row"><input id="organizer-link" readonly><button class="button button-secondary" data-copy="organizer-link">Copia</button></div>
       <p id="copy-error" class="message error" role="alert" hidden></p>
-      <a class="button button-primary button-wide" href="${organizerUrl}">Vai al pannello <span aria-hidden="true">↗</span></a>
-      <p class="tiny-note">Il pannello è protetto dal tuo link privato. Non condividerlo.</p>
+      <a class="button button-primary button-wide" href="${organizerUrl}">Apri il pannello organizzatore <span aria-hidden="true">→</span></a>
+      <p class="tiny-note">Chi possiede il link organizzatore può gestire questo gruppo. Non condividerlo.</p>
     </section>`;
   document.querySelector("#invite-link").value = inviteUrl;
   document.querySelector("#organizer-link").value = organizerUrl;
@@ -142,23 +138,23 @@ function renderJoin(drawId, inviteSecret) {
   if (!drawId || !inviteSecret) return renderNotFound();
   app.innerHTML = `
     <section class="result-card">
-      <div class="hero-sticker small-sticker" aria-hidden="true">🎄</div>
-      <p class="eyebrow">SEI DEI NOSTRI?</p>
-      <h1 id="group-title">Un attimo…</h1>
-      <p class="hero-copy">Iscriviti con il tuo nome. Quando parte il sorteggio, il tuo risultato sarà qui, solo per te.</p>
+      <div class="card-ornament" aria-hidden="true">✳</div>
+      <p class="eyebrow">INVITO AL SORTEGGIO</p>
+      <h1 id="group-title">Caricamento…</h1>
+      <p class="hero-copy">Iscriviti con il tuo nome. Quando il sorteggio sarà pronto, potrai consultare il tuo abbinamento da qui.</p>
       <div id="joined-panel" class="joined-panel" hidden>
-        <span class="step-icon" aria-hidden="true">💌</span>
-        <div><h2>Ci sei!</h2><p>Salva il tuo codice personale: è la chiave per vedere il tuo abbinamento.</p>
+        <span class="joined-mark" aria-hidden="true">✓</span>
+        <div><h2>Iscrizione completata</h2><p>Conserva il tuo codice personale: ti servirà per consultare l’abbinamento.</p>
           <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
-          <a id="my-result-link" class="button button-primary button-wide" href="#">Salva il link al tuo risultato ↗</a>
+          <a id="my-result-link" class="button button-primary button-wide" href="#">Apri il tuo risultato <span aria-hidden="true">→</span></a>
           <p id="copy-error" class="message error" role="alert" hidden></p>
-          <p class="tiny-note">Il codice è personale. Non inviarlo all’organizzatore né agli altri partecipanti.</p>
+          <p class="tiny-note">Il codice è personale. Non condividerlo, nemmeno con l’organizzatore.</p>
         </div>
       </div>
       <form id="join-form" class="stack-form">
-        <label for="name">Come ti chiami?</label>
+        <label for="name">Il tuo nome</label>
         <input id="name" maxlength="80" autocomplete="name" placeholder="Nome e cognome" required>
-        <button class="button button-primary button-wide" type="submit">Iscrivimi al sorteggio <span aria-hidden="true">↗</span></button>
+        <button class="button button-primary button-wide" type="submit">Iscriviti al sorteggio <span aria-hidden="true">→</span></button>
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
       <p id="group-state" class="state-line"></p>
@@ -223,11 +219,11 @@ function renderNotFound() {
   stopRefresh();
   app.innerHTML = `
     <section class="result-card">
-      <div class="hero-sticker small-sticker" aria-hidden="true">🧭</div>
-      <p class="eyebrow">LINK DA RICONTROLLARE</p>
-      <h1>Ops, ci siamo<br><span>persi.</span></h1>
-      <p class="hero-copy">Il link non è completo o il gruppo non esiste più. Chiedi all’organizzatore di rimandartelo.</p>
-      <a class="button button-primary button-wide" href="${pageUrl}">Torna alla home ↗</a>
+      <div class="card-ornament" aria-hidden="true">↗</div>
+      <p class="eyebrow">LINK NON VALIDO</p>
+      <h1>Questo gruppo<br><span>non è disponibile.</span></h1>
+      <p class="hero-copy">Controlla il link oppure chiedi all’organizzatore di inviartelo di nuovo.</p>
+      <a class="button button-primary button-wide" href="${pageUrl}">Torna alla pagina iniziale <span aria-hidden="true">→</span></a>
     </section>`;
 }
 
@@ -235,20 +231,20 @@ function renderResult(drawId, participantId) {
   stopRefresh();
   app.innerHTML = `
     <section class="result-card result-reveal">
-      <div class="hero-sticker small-sticker" aria-hidden="true">🧦</div>
-      <p class="eyebrow">IL TUO SEGRETO È PRONTO</p>
-      <h1 id="result-title">Babbo Natale<br><span>segreto.</span></h1>
-      <p class="hero-copy">Inserisci il codice personale che hai ricevuto quando ti sei iscritto. L’abbinamento non viene mostrato agli altri.</p>
+      <div class="card-ornament" aria-hidden="true">✳</div>
+      <p class="eyebrow">AREA PERSONALE</p>
+      <h1 id="result-title">Il tuo<br><span>abbinamento.</span></h1>
+      <p class="hero-copy">Inserisci il codice personale scelto al momento dell’iscrizione. Solo tu puoi consultare il destinatario.</p>
       <form id="result-form" class="stack-form">
-        <label for="access-code">Il tuo codice personale</label>
+        <label for="access-code">Codice personale</label>
         <input id="access-code" autocomplete="off" spellcheck="false" placeholder="Incolla il tuo codice" required>
-        <button class="button button-primary button-wide" type="submit">Svela il destinatario ✨</button>
+        <button class="button button-primary button-wide" type="submit">Mostra il destinatario <span aria-hidden="true">→</span></button>
         <p id="result-error" class="message error" role="alert" hidden></p>
       </form>
       <div id="assignment" class="assignment" hidden>
-        <span class="eyebrow">PREPARATI A FARE FELICE…</span>
+        <span class="eyebrow">IL TUO DESTINATARIO</span>
         <p id="recipient" class="recipient"></p>
-        <p class="tiny-note">Psst… bocca cucita fino a Natale 🤫</p>
+        <p class="tiny-note">Conserva il segreto fino al momento dello scambio.</p>
       </div>
     </section>`;
   document.querySelector("#result-form").addEventListener("submit", async (event) => {
@@ -286,14 +282,14 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
   if (!drawId || !organizerSecret) return renderNotFound();
   app.innerHTML = `
     <section class="result-card organizer-card">
-      <div class="eyebrow-row"><span class="eyebrow">PANNELLO ORGANIZZATORE</span><span class="admin-badge">SOLO TU 🔒</span></div>
+      <div class="eyebrow-row"><span class="eyebrow">PANNELLO ORGANIZZATORE</span><span class="admin-badge">ACCESSO PRIVATO</span></div>
       <h1 id="manager-title">Un attimo…</h1>
-      <p class="hero-copy">La crew si iscrive da qualsiasi dispositivo. Tu fai partire il sorteggio: ogni persona riceve solo il suo abbinamento.</p>
-      <div class="manager-stats"><div><span>ISCRITTI</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
+      <p class="hero-copy">I partecipanti possono iscriversi da qualsiasi dispositivo. Avvia il sorteggio quando il gruppo è pronto; non vedrai gli abbinamenti.</p>
+      <div class="manager-stats"><div><span>PARTECIPANTI</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
       <div id="participants" class="participant-list"></div>
       <div class="actions">
-        <button id="draw-button" class="button button-primary button-wide" type="button">Fai partire la magia ✨</button>
-        <button id="reset-button" class="button button-secondary button-wide" type="button">Azzera e riparti</button>
+        <button id="draw-button" class="button button-primary button-wide" type="button">Avvia il sorteggio <span aria-hidden="true">→</span></button>
+        <button id="reset-button" class="button button-secondary button-wide" type="button">Azzera il gruppo</button>
       </div>
       <p id="manager-message" class="message success-message" role="status" hidden></p>
       <p id="manager-error" class="message error" role="alert" hidden></p>
@@ -337,7 +333,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         name.textContent = participant.name;
         const joined = document.createElement("span");
         joined.className = "participant-check";
-        joined.textContent = "ISCRITTO ✓";
+        joined.textContent = "ISCRITTO";
         row.append(name, joined);
         container.append(row);
       }
@@ -380,7 +376,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         p_organizer_secret: organizerSecret,
         p_assignments: assignments,
       });
-      message(statusMessage, "Sorteggio pronto! Ogni partecipante può aprire il proprio link per scoprire il regalo. 🎉");
+      message(statusMessage, "Sorteggio completato. Ogni partecipante può consultare il proprio abbinamento.");
     } catch (reason) {
       message(error, reason);
     } finally {
@@ -399,7 +395,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         p_draw_id: drawId,
         p_organizer_secret: organizerSecret,
       });
-      message(statusMessage, "Gruppo azzerato. Condividi di nuovo il link d’iscrizione. 🎄");
+      message(statusMessage, "Gruppo azzerato. Le iscrizioni sono nuovamente aperte.");
     } catch (reason) {
       message(error, reason);
     } finally {
