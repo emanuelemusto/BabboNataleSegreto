@@ -66,7 +66,7 @@ function renderHome() {
       <p class="hero-copy">Organizza il sorteggio del tuo gruppo. Ogni partecipante riceve il proprio abbinamento; chi organizza non vede i risultati.</p>
       <form id="create-form" class="create-form">
         <label for="title">Nome del gruppo</label>
-        <div class="create-row"><input id="title" maxlength="80" placeholder="es. Cena di dicembre" autocomplete="off" required><button class="button button-primary" type="submit">Crea gruppo</button></div>
+        <div class="create-row"><input id="title" maxlength="80" placeholder="es. Pasta Team" autocomplete="off" required><button class="button button-primary" type="submit">Crea gruppo</button></div>
         <p id="create-error" class="message error" role="alert" hidden></p>
       </form>
     </section>
