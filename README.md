@@ -5,7 +5,7 @@ Web app italiana per i sorteggi, ospitata su GitHub Pages con iscritti e abbinam
 ## Configura Supabase (una tantum)
 
 1. Crea un progetto gratuito su [supabase.com](https://supabase.com/).
-2. Nel progetto apri **SQL Editor**, crea una query e incolla il contenuto di `supabase/migrations/202611260001_secret_santa.sql`; poi eseguila.
+2. Nel progetto apri **SQL Editor**. Per una nuova installazione, esegui in ordine i file `202611260001_secret_santa.sql` e `202611260002_fix_postgres_regex_limits.sql` dalla cartella `supabase/migrations`. Se il database era già configurato, esegui soltanto la seconda migrazione.
 3. Dalla pagina **Project Settings → API** copia il Project URL e la chiave pubblica **anon / legacy JWT**. Non usare mai la `service_role` o una chiave segreta nel sito.
 4. Inserisci URL e chiave in `static/config.js`:
 

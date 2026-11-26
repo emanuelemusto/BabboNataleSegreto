@@ -22,12 +22,21 @@ create table if not exists public.santa_participants (
       and coalesce(public_key->>'e' = 'AQAB', false)
     ),
   private_key_ciphertext text not null
-    check (private_key_ciphertext ~ '^[A-Za-z0-9_-]{100,10000}$'),
+    check (
+      char_length(private_key_ciphertext) between 100 and 10000
+      and private_key_ciphertext ~ '^[A-Za-z0-9_-]+$'
+    ),
   private_key_iv text not null
     check (private_key_iv ~ '^[A-Za-z0-9_-]{16}$'),
   access_hash text not null check (access_hash ~ '^[0-9a-f]{64}$'),
   assignment_ciphertext text
-    check (assignment_ciphertext is null or assignment_ciphertext ~ '^[A-Za-z0-9_-]{100,3000}$'),
+    check (
+      assignment_ciphertext is null
+      or (
+        char_length(assignment_ciphertext) between 100 and 3000
+        and assignment_ciphertext ~ '^[A-Za-z0-9_-]+$'
+      )
+    ),
   created_at timestamptz not null default now()
 );
 
@@ -140,7 +149,8 @@ begin
      or p_access_hash is null
      or p_access_hash !~ '^[0-9a-f]{64}$'
      or p_private_key_ciphertext is null
-     or p_private_key_ciphertext !~ '^[A-Za-z0-9_-]{100,10000}$'
+     or char_length(p_private_key_ciphertext) not between 100 and 10000
+     or p_private_key_ciphertext !~ '^[A-Za-z0-9_-]+$'
      or p_private_key_iv is null
      or p_private_key_iv !~ '^[A-Za-z0-9_-]{16}$'
      or p_public_key is null
@@ -273,7 +283,11 @@ begin
     )
     where x.participant_id is null
        or x.recipient_id is null
-       or coalesce(x.assignment_ciphertext !~ '^[A-Za-z0-9_-]{100,3000}$', true)
+       or coalesce(
+         char_length(x.assignment_ciphertext) not between 100 and 3000
+         or x.assignment_ciphertext !~ '^[A-Za-z0-9_-]+$',
+         true
+       )
        or x.participant_id = x.recipient_id
   ) or (
     select count(distinct x.participant_id)

@@ -1,0 +1,181 @@
+begin;
+
+alter table public.santa_participants
+  drop constraint if exists santa_participants_private_key_ciphertext_check;
+alter table public.santa_participants
+  add constraint santa_participants_private_key_ciphertext_check
+  check (
+    char_length(private_key_ciphertext) between 100 and 10000
+    and private_key_ciphertext ~ '^[A-Za-z0-9_-]+$'
+  );
+alter table public.santa_participants
+  drop constraint if exists santa_participants_assignment_ciphertext_check;
+alter table public.santa_participants
+  add constraint santa_participants_assignment_ciphertext_check
+  check (
+    assignment_ciphertext is null
+    or (
+      char_length(assignment_ciphertext) between 100 and 3000
+      and assignment_ciphertext ~ '^[A-Za-z0-9_-]+$'
+    )
+  );
+
+create or replace function public.santa_join_draw(
+  p_draw_id uuid,
+  p_invite_secret text,
+  p_name text,
+  p_public_key jsonb,
+  p_private_key_ciphertext text,
+  p_private_key_iv text,
+  p_access_hash text
+)
+returns table (participant_id uuid, draw_title text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_title text;
+  v_participant_id uuid;
+begin
+  if p_name is null or char_length(btrim(p_name)) not between 1 and 80 then
+    raise exception 'Il nome deve contenere da 1 a 80 caratteri.';
+  end if;
+  if not public.santa_secret_is_valid(p_invite_secret)
+     or p_access_hash is null
+     or p_access_hash !~ '^[0-9a-f]{64}$'
+     or p_private_key_ciphertext is null
+     or char_length(p_private_key_ciphertext) not between 100 and 10000
+     or p_private_key_ciphertext !~ '^[A-Za-z0-9_-]+$'
+     or p_private_key_iv is null
+     or p_private_key_iv !~ '^[A-Za-z0-9_-]{16}$'
+     or p_public_key is null
+     or jsonb_typeof(p_public_key) <> 'object'
+     or not (p_public_key ?& array['kty', 'n', 'e'])
+     or not coalesce(p_public_key->>'kty' = 'RSA', false)
+     or not coalesce(p_public_key->>'n' ~ '^[A-Za-z0-9_-]+$', false)
+     or not coalesce(p_public_key->>'e' = 'AQAB', false) then
+    raise exception 'Dati di iscrizione non validi.';
+  end if;
+
+  select d.title into v_title
+  from public.santa_draws d
+  where d.id = p_draw_id
+    and d.invite_hash = public.santa_secret_hash(p_invite_secret)
+    and d.status = 'open'
+  for update;
+  if not found then
+    raise exception 'Iscrizioni chiuse o link non valido.';
+  end if;
+
+  insert into public.santa_participants (
+    draw_id, name, public_key, private_key_ciphertext, private_key_iv, access_hash
+  )
+  values (
+    p_draw_id, btrim(p_name), p_public_key, p_private_key_ciphertext,
+    p_private_key_iv, p_access_hash
+  )
+  returning id into v_participant_id;
+
+  return query select v_participant_id, v_title;
+exception
+  when unique_violation then
+    raise exception 'Questo nome è già iscritto al gruppo.';
+end
+$$;
+
+create or replace function public.santa_complete_draw(
+  p_draw_id uuid,
+  p_organizer_secret text,
+  p_assignments jsonb
+)
+returns table (draw_status text, participant_count bigint)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_expected bigint;
+  v_updated bigint;
+begin
+  if jsonb_typeof(p_assignments) <> 'array' then
+    raise exception 'Risultati del sorteggio non validi.';
+  end if;
+  if jsonb_array_length(p_assignments) > 500 then
+    raise exception 'Risultati del sorteggio non validi.';
+  end if;
+
+  perform 1 from public.santa_draws d
+  where d.id = p_draw_id
+    and d.organizer_hash = public.santa_secret_hash(p_organizer_secret)
+    and d.status = 'open'
+  for update;
+  if not found then
+    raise exception 'Link organizzatore non valido o sorteggio già avviato.';
+  end if;
+
+  select count(*) into v_expected
+  from public.santa_participants p
+  where p.draw_id = p_draw_id;
+  if v_expected < 2 or jsonb_array_length(p_assignments) <> v_expected then
+    raise exception 'Servono almeno due iscritti e un risultato per ciascuno.';
+  end if;
+  if exists (
+    select 1
+    from jsonb_to_recordset(p_assignments) as x(
+      participant_id uuid, recipient_id uuid, assignment_ciphertext text
+    )
+    where x.participant_id is null
+       or x.recipient_id is null
+       or coalesce(
+         char_length(x.assignment_ciphertext) not between 100 and 3000
+         or x.assignment_ciphertext !~ '^[A-Za-z0-9_-]+$',
+         true
+       )
+       or x.participant_id = x.recipient_id
+  ) or (
+    select count(distinct x.participant_id)
+    from jsonb_to_recordset(p_assignments) as x(
+      participant_id uuid, recipient_id uuid, assignment_ciphertext text
+    )
+  ) <> v_expected or (
+    select count(distinct x.recipient_id)
+    from jsonb_to_recordset(p_assignments) as x(
+      participant_id uuid, recipient_id uuid, assignment_ciphertext text
+    )
+  ) <> v_expected or exists (
+    select 1
+    from jsonb_to_recordset(p_assignments) as x(
+      participant_id uuid, recipient_id uuid, assignment_ciphertext text
+    )
+    left join public.santa_participants p
+      on p.draw_id = p_draw_id and p.id = x.participant_id
+    left join public.santa_participants r
+      on r.draw_id = p_draw_id and r.id = x.recipient_id
+    where p.id is null or r.id is null
+  ) then
+    raise exception 'Risultati incompleti o non validi.';
+  end if;
+
+  update public.santa_participants p
+  set assignment_ciphertext = x.assignment_ciphertext
+  from jsonb_to_recordset(p_assignments) as x(
+    participant_id uuid, recipient_id uuid, assignment_ciphertext text
+  )
+  where p.id = x.participant_id
+    and p.draw_id = p_draw_id;
+  get diagnostics v_updated = row_count;
+  if v_updated <> v_expected then
+    raise exception 'I risultati non corrispondono agli iscritti.';
+  end if;
+
+  update public.santa_draws d
+  set status = 'drawn', drawn_at = now()
+  where d.id = p_draw_id;
+
+  return query select 'drawn'::text, v_expected;
+end
+$$;
+
+notify pgrst, 'reload schema';
+commit;

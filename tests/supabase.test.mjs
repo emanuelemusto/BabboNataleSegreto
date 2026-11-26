@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import { callRpc, isSupabaseConfigured } from "../static/supabase.mjs";
+
+test("SQL migrations keep PostgreSQL regex repetition counts within supported limits", async () => {
+  const migrationDirectory = new URL("../supabase/migrations/", import.meta.url);
+  const files = await readdir(migrationDirectory);
+
+  for (const file of files.filter((name) => name.endsWith(".sql"))) {
+    const sql = await readFile(new URL(file, migrationDirectory), "utf8");
+    for (const match of sql.matchAll(/\{(\d+)(?:,(\d*))?\}/g)) {
+      const lower = Number(match[1]);
+      const upper = match[2] ? Number(match[2]) : lower;
+      assert.ok(lower <= 255 && upper <= 255, `${file} contains unsupported regex bound ${match[0]}`);
+    }
+  }
+});
 
 test("Supabase RPC uses the public key and sends only the requested function parameters", async () => {
   const previousConfig = globalThis.SECRET_SANTA_CONFIG;
