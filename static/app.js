@@ -142,11 +142,11 @@ function renderJoin(drawId, inviteSecret) {
       <p class="hero-copy">Inserisci il tuo nome per partecipare. Al termine del sorteggio potrai consultare il tuo abbinamento da questa pagina.</p>
       <div id="joined-panel" class="joined-panel" hidden>
         <span class="joined-mark" aria-hidden="true">✓</span>
-        <div><h2>Iscrizione completata</h2><p>Conserva il codice personale: ti servirà per consultare il tuo abbinamento.</p>
+        <div><h2>Iscrizione completata</h2><p>Apri il link personale per vedere il tuo abbinamento quando il sorteggio sarà pronto.</p>
           <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
           <a id="my-result-link" class="button button-primary button-wide" href="#">Apri il tuo abbinamento</a>
           <p id="copy-error" class="message error" role="alert" hidden></p>
-          <p class="tiny-note">Il codice è personale e non può essere recuperato dall’organizzatore.</p>
+          <p class="tiny-note">Il link contiene il tuo codice personale: conservalo e non condividerlo. L’organizzatore non può recuperare il codice.</p>
         </div>
       </div>
       <form id="join-form" class="stack-form">
@@ -199,7 +199,7 @@ function renderJoin(drawId, inviteSecret) {
       }));
       document.querySelector("#group-title").textContent = result.draw_title;
       document.querySelector("#personal-code").value = credentials.accessCode;
-      document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id);
+      document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id, credentials.accessCode);
       document.querySelector("#joined-panel").hidden = false;
       form.hidden = true;
       copyButtons();
@@ -224,13 +224,13 @@ function renderNotFound() {
     </section>`;
 }
 
-function renderResult(drawId, participantId) {
+function renderResult(drawId, participantId, accessCode) {
   stopRefresh();
   app.innerHTML = `
     <section class="result-card result-reveal">
       <p class="eyebrow">AREA PERSONALE</p>
       <h1 id="result-title">Il tuo<br><span>abbinamento.</span></h1>
-      <p class="hero-copy">Inserisci il codice personale che hai salvato quando ti sei iscritto. Solo tu puoi vedere il risultato.</p>
+      <p class="hero-copy">${accessCode ? "Stiamo recuperando il tuo abbinamento. Solo tu puoi vedere il risultato." : "Inserisci il codice personale che hai salvato quando ti sei iscritto. Solo tu puoi vedere il risultato."}</p>
       <form id="result-form" class="stack-form">
         <label for="access-code">Codice personale</label>
         <input id="access-code" autocomplete="off" spellcheck="false" placeholder="Incolla il tuo codice" required>
@@ -243,7 +243,9 @@ function renderResult(drawId, participantId) {
         <p class="tiny-note">Non condividere il risultato prima dello scambio dei regali.</p>
       </div>
     </section>`;
-  document.querySelector("#result-form").addEventListener("submit", async (event) => {
+  const form = document.querySelector("#result-form");
+  if (accessCode) document.querySelector("#access-code").value = accessCode;
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = event.currentTarget.querySelector("button");
     const error = document.querySelector("#result-error");
@@ -271,6 +273,7 @@ function renderResult(drawId, participantId) {
       button.disabled = false;
     }
   });
+  if (accessCode) form.requestSubmit();
 }
 
 function renderManager(drawId, organizerSecret, inviteSecret) {
@@ -413,7 +416,7 @@ function render() {
   } else if (kind === "manage" && id && secret && extraSecret) {
     renderManager(id, secret, extraSecret);
   } else if (kind === "result" && id && secret) {
-    renderResult(id, secret);
+    renderResult(id, secret, extraSecret);
   } else {
     renderHome();
   }
