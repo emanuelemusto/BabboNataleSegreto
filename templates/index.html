@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ed">
+  <title>Babbo Natale segreto</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="brand"><span class="brand-mark" aria-hidden="true">✳</span> UN PICCOLO RITUALE DI NATALE</header>
+    <section class="card hero">
+      <p class="eyebrow">Il regalo giusto, in segreto</p>
+      <h1>Babbo Natale<br><span>segreto.</span></h1>
+      <p class="intro">Crea un gruppo, invita chi vuoi e lascia che il sorteggio faccia il resto. Il tuo abbinamento resta visibile solo a te.</p>
+      <form id="create-form">
+        <label for="title">Come si chiama il gruppo?</label>
+        <input id="title" name="title" maxlength="80" placeholder="es. Natale in famiglia" required>
+        <button class="button button-primary" type="submit">Crea il gruppo <span aria-hidden="true">→</span></button>
+        <p id="create-error" class="message error" role="alert" hidden></p>
+      </form>
+      <div id="created" class="created" hidden>
+        <p class="success-title">Gruppo pronto. Tieni al sicuro il tuo link.</p>
+        <label for="invite-link">Link da condividere con tutti</label>
+        <div class="copy-row"><input id="invite-link" readonly><button class="button button-light" data-copy="invite-link">Copia</button></div>
+        <label for="organizer-link">Il tuo link personale da organizzatore</label>
+        <div class="copy-row"><input id="organizer-link" readonly><button class="button button-light" data-copy="organizer-link">Copia</button></div>
+        <p class="hint">Il link organizzatore permette di avviare e azzerare il sorteggio. Non condividerlo.</p>
+        <a id="open-organizer" class="button button-primary" href="#">Apri il pannello organizzatore <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+    <footer>Un sorteggio, zero spoiler. <span aria-hidden="true">✳</span></footer>
+  </main>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
