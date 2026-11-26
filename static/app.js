@@ -378,6 +378,7 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
       <h1 id="manager-title">Un attimo…</h1>
       <p class="hero-copy">Condividi l’invito e attendi che tutti i partecipanti si siano iscritti. Avvia il sorteggio quando il gruppo è pronto; gli abbinamenti resteranno privati.</p>
       <div class="manager-stats"><div><span>PARTECIPANTI</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
+      <p id="draw-notice" class="draw-notice" role="status">Verifica stato sorteggio…</p>
       <div id="participants" class="participant-list"></div>
       <div class="actions">
         <button id="draw-button" class="button button-primary button-wide" type="button">Avvia il sorteggio</button>
@@ -407,7 +408,12 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
       const state = await adminState();
       document.querySelector("#manager-title").textContent = state.draw_title;
       document.querySelector("#participant-count").textContent = state.participant_count;
-      document.querySelector("#draw-status").textContent = state.draw_status === "drawn" ? "Sorteggio fatto" : "Ci si può iscrivere";
+      const drawComplete = state.draw_status === "drawn";
+      document.querySelector("#draw-status").textContent = drawComplete ? "Completato" : "Da effettuare";
+      document.querySelector("#draw-notice").textContent = drawComplete
+        ? "Sorteggio effettuato. I partecipanti possono aprire il proprio link per vedere l’abbinamento."
+        : "Il sorteggio per questo gruppo NON è ancora stato effettuato. Avvialo con il pulsante qui sotto quando tutti si sono iscritti.";
+      document.querySelector("#draw-notice").classList.toggle("draw-notice-complete", drawComplete);
       document.querySelector("#invite-link").value = routeUrl("join", drawId, inviteSecret);
       document.querySelector("#draw-button").disabled = busy || state.draw_status !== "open" || state.participant_count < 2;
       document.querySelector("#reset-button").disabled = busy || (state.draw_status === "open" && state.participant_count === 0);
