@@ -41,6 +41,18 @@ test("organizer can remove a participant only before the draw", async () => {
   assert.match(migration, /grant execute on function public\.santa_remove_participant\(uuid, text, uuid\) to anon, authenticated/i);
 });
 
+test("invite access exposes participant names but not private participant data", async () => {
+  const migration = await readFile(
+    new URL("../supabase/migrations/202611260005_public_participant_list.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /function public\.santa_group_info\(\s*p_draw_id uuid,\s*p_invite_secret text/s);
+  assert.match(migration, /d\.invite_hash = public\.santa_secret_hash\(p_invite_secret\)/);
+  assert.match(migration, /jsonb_build_object\('name', p\.name\)/);
+  assert.doesNotMatch(migration, /access_hash|private_key_ciphertext|assignment_ciphertext|public_key/);
+  assert.match(migration, /grant execute on function public\.santa_group_info\(uuid, text\) to anon, authenticated/i);
+});
+
 test("Supabase RPC uses the public key and sends only the requested function parameters", async () => {
   const previousConfig = globalThis.SECRET_SANTA_CONFIG;
   const previousFetch = globalThis.fetch;

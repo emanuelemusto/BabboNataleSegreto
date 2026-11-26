@@ -181,6 +181,14 @@ function renderJoin(drawId, inviteSecret) {
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
       <p id="group-state" class="draw-notice participant-draw-notice" role="status">Verifica stato sorteggio…</p>
+      <section class="participant-preview" aria-labelledby="participant-preview-title">
+        <div class="participant-preview-heading">
+          <h2 id="participant-preview-title">Partecipanti</h2>
+          <span id="participant-preview-count" class="participant-count">0</span>
+        </div>
+        <ul id="participant-preview-list" class="participant-preview-list"></ul>
+        <p id="participant-preview-empty" class="participant-preview-empty">Nessun partecipante iscritto.</p>
+      </section>
       <a id="invite-result-link" class="button button-primary button-wide" href="#" hidden>Vai al tuo abbinamento</a>
       <details class="returning-participant">
         <summary>
@@ -207,6 +215,18 @@ function renderJoin(drawId, inviteSecret) {
         p_invite_secret: inviteSecret,
       }));
       title.textContent = current.draw_title;
+      const participantNames = Array.isArray(current.participants) ? current.participants : [];
+      const participantList = document.querySelector("#participant-preview-list");
+      const participantEmpty = document.querySelector("#participant-preview-empty");
+      document.querySelector("#participant-preview-count").textContent = String(current.participant_count);
+      participantList.replaceChildren();
+      for (const participant of participantNames) {
+        if (!participant?.name) continue;
+        const item = document.createElement("li");
+        item.textContent = participant.name;
+        participantList.append(item);
+      }
+      participantEmpty.hidden = participantNames.length > 0;
       const savedSession = getParticipantSession(drawId, null);
       state.textContent = current.draw_status === "open"
         ? savedSession

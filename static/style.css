@@ -86,6 +86,13 @@ input:focus { border-color: #839a8a; box-shadow: 0 0 0 3px rgba(67, 110, 85, .12
 .draw-notice { margin: -7px 0 17px; padding: 12px 14px; border: 1px solid #e6d5bd; border-left: 3px solid #a56b31; border-radius: 3px; background: #fbf5eb; color: #69471f; font-size: 12px; font-weight: 600; line-height: 1.55; }
 .draw-notice-complete { border-color: #d5ddd6; border-left-color: var(--green); background: var(--green-pale); color: var(--green); }
 .participant-draw-notice { margin: 18px 0 0; text-align: left; }
+.participant-preview { margin-top: 16px; border: 1px solid var(--line); border-radius: 5px; background: #f7f8f6; }
+.participant-preview-heading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.participant-preview-heading h2 { margin: 0; }
+.participant-count { display: grid; min-width: 26px; height: 26px; place-items: center; border-radius: 50%; background: var(--green); color: white; font-size: 11px; font-weight: 700; }
+.participant-preview-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 18px; margin: 0; padding: 14px 14px 14px 32px; font-size: 12px; }
+.participant-preview-list li { padding: 2px 0; overflow-wrap: anywhere; }
+.participant-preview-empty { margin: 0; padding: 14px; color: var(--muted); font-size: 12px; }
 .participant-list { display: grid; gap: 7px; margin-bottom: 18px; }
 .participant-item { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; }
 .participant-actions { display: flex; align-items: center; gap: 8px; }
@@ -127,6 +134,7 @@ footer { display: flex; align-items: center; justify-content: center; padding: 1
   .copy-row .button { padding: 0 11px; font-size: 10px; }
   .copy-row input { padding: 0 9px; font-size: 10px !important; }
   .joined-panel { padding: 15px 12px; }
+  .participant-preview-list { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
