@@ -28,6 +28,19 @@ test("existing participants can be found with their personal-code hash only", as
   assert.match(migration, /grant execute on function public\.santa_find_participant\(uuid, text\) to anon, authenticated/i);
 });
 
+test("organizer can remove a participant only before the draw", async () => {
+  const migration = await readFile(
+    new URL("../supabase/migrations/202611260004_remove_participant.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /function public\.santa_remove_participant\(\s*p_draw_id uuid,\s*p_organizer_secret text,\s*p_participant_id uuid/s);
+  assert.match(migration, /d\.organizer_hash = public\.santa_secret_hash\(p_organizer_secret\)/);
+  assert.match(migration, /d\.status = 'open'/);
+  assert.match(migration, /for update/i);
+  assert.match(migration, /p\.id = p_participant_id/);
+  assert.match(migration, /grant execute on function public\.santa_remove_participant\(uuid, text, uuid\) to anon, authenticated/i);
+});
+
 test("Supabase RPC uses the public key and sends only the requested function parameters", async () => {
   const previousConfig = globalThis.SECRET_SANTA_CONFIG;
   const previousFetch = globalThis.fetch;

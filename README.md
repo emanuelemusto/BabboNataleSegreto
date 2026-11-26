@@ -24,7 +24,7 @@ Web app italiana per i sorteggi, ospitata su GitHub Pages con iscritti e abbinam
 1. L’organizzatore crea il gruppo e condivide il link d’invito. Conserva privato il link del pannello organizzatore.
 2. Ogni partecipante apre l’invito dal proprio telefono o computer e si iscrive. Il browser ricorda il codice su quel dispositivo, anche tra schede diverse; chi era già iscritto può aprire **Già iscritto?** sul link d’invito e inserire il codice personale per collegare il proprio accesso.
 3. Quando ci sono almeno due iscritti, l’organizzatore avvia il sorteggio dal pannello. Riaprendo il link d’invito sul dispositivo usato per iscriversi, apparirà un pulsante per aprire il proprio abbinamento. In alternativa, apri il link personale e inserisci il codice salvato.
-4. **Azzera e riparti** elimina gli iscritti e i risultati del gruppo, riaprendo le iscrizioni. I link di invito e organizzatore restano validi.
+4. L’organizzatore può rimuovere un singolo partecipante finché le iscrizioni sono aperte. **Azzera e riparti** elimina tutti gli iscritti e i risultati, riaprendo le iscrizioni. I link di invito e organizzatore restano validi.
 
 Non è previsto l’invio automatico di email: il sito non raccoglie indirizzi email. Ogni partecipante riceve il link al proprio risultato dopo l’iscrizione; può salvarlo e tornare ad aprirlo quando il sorteggio è pronto.
 

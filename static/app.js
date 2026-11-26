@@ -419,10 +419,35 @@ function renderManager(drawId, organizerSecret, inviteSecret) {
         row.className = "participant-item";
         const name = document.createElement("span");
         name.textContent = participant.name;
-        const joined = document.createElement("span");
-        joined.className = "participant-check";
-        joined.textContent = "CI SONO";
-        row.append(name, joined);
+        const actions = document.createElement("div");
+        actions.className = "participant-actions";
+        const remove = document.createElement("button");
+        remove.className = "button button-secondary participant-remove";
+        remove.type = "button";
+        remove.textContent = "Rimuovi";
+        remove.disabled = busy || state.draw_status !== "open";
+        remove.setAttribute("aria-label", `Rimuovi ${participant.name} dal gruppo`);
+        remove.addEventListener("click", async () => {
+          if (busy || !window.confirm(`Rimuovere ${participant.name} dal gruppo?`)) return;
+          busy = true;
+          error.hidden = true;
+          statusMessage.hidden = true;
+          try {
+            await callRpc("santa_remove_participant", {
+              p_draw_id: drawId,
+              p_organizer_secret: organizerSecret,
+              p_participant_id: participant.id,
+            });
+            message(statusMessage, `${participant.name} è stato rimosso dal gruppo.`);
+          } catch (reason) {
+            message(error, reason);
+          } finally {
+            busy = false;
+            await refresh();
+          }
+        });
+        actions.append(remove);
+        row.append(name, actions);
         container.append(row);
       }
     } catch (reason) {
