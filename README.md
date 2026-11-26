@@ -1,35 +1,38 @@
 # Babbo Natale segreto
 
-Una piccola web app in italiano per organizzare un sorteggio: ogni persona riceve il proprio abbinamento nel browser, mentre l'organizzatore può avviare o azzerare il gruppo senza vedere i risultati.
+Web app statica in italiano, pubblicabile su GitHub Pages. Non richiede server, database, servizi esterni o credenziali.
 
-## Avvio in locale
+## Limite importante: un solo browser
 
-Richiede Python 3.10 o successivo.
+GitHub Pages serve solo file statici e non sincronizza le iscrizioni fra dispositivi. Per questo la versione solo Pages salva il gruppo nell'archiviazione locale del browser: **tutti devono aprire il link d'invito sullo stesso dispositivo, nello stesso browser e profilo** usati per creare il gruppo. Il link non trasferisce il gruppo a un altro telefono o browser; cancellare i dati del sito può cancellare il gruppo.
 
-```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python app.py
-```
+L'organizzatore crea il gruppo, condivide il link d'invito e conserva per sé il link organizzatore. I partecipanti si iscrivono con lo stesso browser; il sorteggio si avvia con almeno due iscritti. A ogni persona viene mostrato una sola volta un codice casuale da conservare. Dopo il sorteggio, nome e codice consentono di leggere il proprio abbinamento. Il reset elimina tutti gli iscritti e i risultati e riapre il gruppo.
 
-Apri <http://127.0.0.1:5000>. Crea un gruppo e conserva il link organizzatore: è l'unico modo per avviare o azzerare il sorteggio. Condividi il link di invito con i partecipanti. Ognuno si iscrive dal proprio browser e, dopo l'avvio, vede soltanto il proprio destinatario nello stesso browser.
+Le chiavi private dei partecipanti sono cifrate con il rispettivo codice personale; gli abbinamenti sono a loro volta cifrati con le chiavi pubbliche. L'app non presenta i risultati nel pannello organizzatore. **Essendo un'app puramente locale, non offre una garanzia di segretezza contro chi controlla il dispositivo/browser o ne ispeziona o modifica i dati**. Per partecipanti su dispositivi separati e privacy robusta serve un backend, ad esempio Supabase.
 
-Il gruppo deve avere almeno due iscritti. I nomi devono essere diversi. L'organizzatore vede il numero degli iscritti, ma non i nomi né gli abbinamenti. **Azzera gruppo** elimina iscrizioni e abbinamenti, quindi riapre il gruppo mantenendo gli stessi link.
+## Pubblicazione su GitHub Pages
 
-## Configurazione
+Il workflow in `.github/workflows/deploy-pages.yml` pubblica automaticamente i file statici su ogni push al branch `main`.
 
-Per spostare il database SQLite, imposta la variabile `DATABASE_PATH` prima di avviare l'app. Il percorso predefinito è `data/secret_santa.sqlite3`. In produzione usa un server WSGI, ad esempio Waitress:
+1. Nel repository GitHub apri **Settings → Pages**.
+2. In **Build and deployment**, seleziona **GitHub Actions** come source.
+3. Esegui un push su `main` (o avvia **Deploy GitHub Pages** dalla scheda Actions).
+4. Attendi il completamento del workflow e apri l'indirizzo Pages mostrato da GitHub.
 
-```powershell
-pip install waitress
-waitress-serve --host 0.0.0.0 --port 8080 app:app
-```
+L'app non usa servizi esterni e funziona anche sul percorso Pages di un repository, non solo su un dominio personalizzato.
 
-Il disco del servizio deve essere persistente per conservare gruppi e iscrizioni tra riavvii. Tratta i link organizzatore come password: chiunque li possieda può avviare o azzerare il gruppo.
+## Test locali
 
-## Test
+I test richiedono Node.js 20 o successivo e non richiedono dipendenze aggiuntive:
 
 ```powershell
-python -m unittest discover -s tests -v
+node --test tests/*.test.mjs
 ```
+
+Per provare l'app in locale, avvia un server statico dalla cartella del repository, ad esempio:
+
+```powershell
+python -m http.server 8000
+```
+
+Apri <http://localhost:8000>. Usa il protocollo HTTP: le API crittografiche del browser sono disponibili su localhost e su GitHub Pages via HTTPS.
