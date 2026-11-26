@@ -182,6 +182,15 @@ function renderJoin(drawId, inviteSecret) {
       </form>
       <p id="group-state" class="state-line"></p>
       <a id="invite-result-link" class="button button-primary button-wide" href="#" hidden>Vai al tuo abbinamento</a>
+      <details class="returning-participant">
+        <summary>Già iscritto? Apri il tuo abbinamento</summary>
+        <form id="returning-form" class="stack-form">
+          <label for="returning-code">Codice personale</label>
+          <input id="returning-code" autocomplete="off" spellcheck="false" placeholder="Inserisci il codice salvato" required>
+          <button class="button button-secondary button-wide" type="submit">Continua</button>
+          <p id="returning-error" class="message error" role="alert" hidden></p>
+        </form>
+      </details>
     </section>`;
 
   const title = document.querySelector("#group-title");
@@ -201,13 +210,17 @@ function renderJoin(drawId, inviteSecret) {
           ? "Sorteggio completato. Puoi aprire il tuo abbinamento qui sotto."
           : "Sorteggio completato. Per vedere il tuo risultato, apri il link personale che hai salvato.";
       const resultLink = document.querySelector("#invite-result-link");
+      document.querySelector(".returning-participant").hidden = Boolean(savedSession);
       if (current.draw_status === "drawn" && savedSession) {
         resultLink.href = routeUrl("result", drawId, savedSession.participantId);
         resultLink.hidden = false;
       } else {
         resultLink.hidden = true;
       }
-      form.hidden = current.draw_status !== "open" || !document.querySelector("#joined-panel").hidden;
+      form.hidden = current.draw_status !== "open" || Boolean(savedSession) || !document.querySelector("#joined-panel").hidden;
+      if (savedSession && current.draw_status === "open") {
+        state.textContent = "Sei già iscritto da questo dispositivo. Il tuo abbinamento apparirà qui quando il sorteggio sarà pronto.";
+      }
     } catch (reason) {
       form.hidden = true;
       message(state, reason);
@@ -247,6 +260,36 @@ function renderJoin(drawId, inviteSecret) {
       await refresh();
     } catch (reason) {
       message(error, reason);
+      button.disabled = false;
+    }
+  });
+
+  document.querySelector("#returning-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const returningForm = event.currentTarget;
+    const button = returningForm.querySelector("button");
+    const error = document.querySelector("#returning-error");
+    error.hidden = true;
+    button.disabled = true;
+    try {
+      const code = document.querySelector("#returning-code").value.trim();
+      const participant = firstRow(await callRpc("santa_find_participant", {
+        p_draw_id: drawId,
+        p_access_secret: await hashSecret(code, "hex"),
+      }));
+      const sessionSaved = saveParticipantSession(drawId, participant.participant_id, code);
+      if (participant.draw_status === "drawn") {
+        window.location.assign(routeUrl("result", drawId, participant.participant_id));
+        return;
+      }
+      returningForm.hidden = true;
+      form.hidden = true;
+      state.textContent = sessionSaved
+        ? "Codice verificato. Il tuo accesso è collegato a questo dispositivo: torna qui dopo il sorteggio."
+        : "Codice verificato, ma il browser non può salvare la sessione. Conserva il codice e torna qui dopo il sorteggio.";
+    } catch (reason) {
+      message(error, reason);
+    } finally {
       button.disabled = false;
     }
   });
@@ -307,6 +350,7 @@ function renderResult(drawId, participantId, accessCode) {
         privateKeyIv: result.private_key_iv,
         assignmentCiphertext: result.assignment_ciphertext,
       }, code);
+      saveParticipantSession(drawId, participantId, code);
       document.querySelector("#result-title").textContent = result.draw_title;
       document.querySelector("#recipient").textContent = recipient;
       document.querySelector("#assignment").hidden = false;

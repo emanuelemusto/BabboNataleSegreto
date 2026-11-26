@@ -5,7 +5,7 @@ Web app italiana per i sorteggi, ospitata su GitHub Pages con iscritti e abbinam
 ## Configura Supabase (una tantum)
 
 1. Crea un progetto gratuito su [supabase.com](https://supabase.com/).
-2. Nel progetto apri **SQL Editor**. Per una nuova installazione, esegui in ordine i file `202611260001_secret_santa.sql` e `202611260002_fix_postgres_regex_limits.sql` dalla cartella `supabase/migrations`. Se il database era già configurato, esegui soltanto la seconda migrazione.
+2. Nel progetto apri **SQL Editor**. Per una nuova installazione, esegui in ordine tutti i file numerati nella cartella `supabase/migrations`. Se il database era già configurato, esegui le migrazioni successive che non hai ancora applicato.
 3. Dalla pagina **Project Settings → API** copia il Project URL e la chiave pubblica **anon / legacy JWT**. Non usare mai la `service_role` o una chiave segreta nel sito.
 4. Inserisci URL e chiave in `static/config.js`:
 
@@ -22,7 +22,7 @@ Web app italiana per i sorteggi, ospitata su GitHub Pages con iscritti e abbinam
 ## Come si usa
 
 1. L’organizzatore crea il gruppo e condivide il link d’invito. Conserva privato il link del pannello organizzatore.
-2. Ogni partecipante apre l’invito dal proprio telefono o computer e si iscrive. Il browser ricorda il codice su quel dispositivo, anche tra schede diverse; copialo comunque come alternativa se cambi dispositivo o browser.
+2. Ogni partecipante apre l’invito dal proprio telefono o computer e si iscrive. Il browser ricorda il codice su quel dispositivo, anche tra schede diverse; chi era già iscritto può aprire **Già iscritto?** sul link d’invito e inserire il codice personale per collegare il proprio accesso.
 3. Quando ci sono almeno due iscritti, l’organizzatore avvia il sorteggio dal pannello. Riaprendo il link d’invito sul dispositivo usato per iscriversi, apparirà un pulsante per aprire il proprio abbinamento. In alternativa, apri il link personale e inserisci il codice salvato.
 4. **Azzera e riparti** elimina gli iscritti e i risultati del gruppo, riaprendo le iscrizioni. I link di invito e organizzatore restano validi.
 

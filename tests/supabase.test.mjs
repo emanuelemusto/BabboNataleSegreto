@@ -17,6 +17,17 @@ test("SQL migrations keep PostgreSQL regex repetition counts within supported li
   }
 });
 
+test("existing participants can be found with their personal-code hash only", async () => {
+  const migration = await readFile(
+    new URL("../supabase/migrations/202611260003_link_existing_participant.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(migration, /function public\.santa_find_participant\(\s*p_draw_id uuid,\s*p_access_secret text/s);
+  assert.match(migration, /security definer/i);
+  assert.match(migration, /p\.access_hash = p_access_secret/);
+  assert.match(migration, /grant execute on function public\.santa_find_participant\(uuid, text\) to anon, authenticated/i);
+});
+
 test("Supabase RPC uses the public key and sends only the requested function parameters", async () => {
   const previousConfig = globalThis.SECRET_SANTA_CONFIG;
   const previousFetch = globalThis.fetch;
