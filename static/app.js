@@ -6,592 +6,422 @@ import {
   hashSecret,
   randomSecret,
 } from "./crypto.mjs";
-import {
-  createRegistrationPackage,
-  createResultsPackage,
-  validateRegistrationPackage,
-  validateResultsPackage,
-} from "./packages.mjs";
+import { callRpc, isSupabaseConfigured } from "./supabase.mjs";
 
 const app = document.querySelector("#app");
 const pageUrl = `${location.origin}${location.pathname}`;
-const groupKey = (id) => `secret-santa:v1:${id}`;
-const resultKey = (id) => `secret-santa:result:v1:${id}`;
 const route = () => location.hash.slice(1).split("/").map(decodeURIComponent);
-let pageRefreshTimer;
-const recentlyDecrypted = new Map();
+let refreshTimer;
 
-function startRefresh(callback) {
-  window.clearInterval(pageRefreshTimer);
-  pageRefreshTimer = window.setInterval(callback, 2000);
-}
-
-function showMessage(element, message) {
-  element.textContent = message instanceof Error ? message.message : String(message);
+function message(element, value) {
+  if (!element) return;
+  element.textContent = value instanceof Error ? value.message : String(value);
   element.hidden = false;
 }
 
-function loadGroup(id) {
-  let serialized;
-  try {
-    serialized = localStorage.getItem(groupKey(id));
-  } catch {
-    throw new Error("Questo browser non permette di salvare i dati del gruppo.");
-  }
-  if (!serialized) return null;
-  let group;
-  try {
-    group = JSON.parse(serialized);
-  } catch {
-    throw new Error("I dati locali del gruppo non sono leggibili.");
-  }
-  if (
-    group.id !== id ||
-    typeof group.title !== "string" ||
-    !Array.isArray(group.participants) ||
-    (group.status !== "open" && group.status !== "drawn")
-  ) {
-    throw new Error("I dati locali del gruppo non sono validi.");
-  }
-  if (!group.roundId) group.roundId = group.id;
-  return group;
+function routeUrl(kind, ...segments) {
+  return `${pageUrl}#${kind}/${segments.map(encodeURIComponent).join("/")}`;
 }
 
-function saveGroup(group) {
-  try {
-    localStorage.setItem(groupKey(group.id), JSON.stringify(group));
-  } catch {
-    throw new Error("Non è stato possibile salvare il gruppo in questo browser.");
+function firstRow(result) {
+  if (!Array.isArray(result) || !result.length) {
+    throw new Error("Risposta Supabase non valida. Controlla la migrazione del database.");
   }
+  return result[0];
 }
 
-function safeRouteLink(kind, ...segments) {
-  const suffix = segments.map((segment) => encodeURIComponent(segment)).join("/");
-  return `${pageUrl}#${kind}/${suffix}`;
-}
-
-function downloadJson(data, fileName) {
-  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-async function readJsonFile(file) {
-  if (!file) throw new Error("Seleziona un file JSON.");
-  if (file.size > 5_000_000) throw new Error("Il file supera il limite consentito di 5 MB.");
-  try {
-    return JSON.parse(await file.text());
-  } catch {
-    throw new Error("Il file non contiene JSON valido.");
-  }
-}
-
-function wireCopyButtons() {
+function copyButtons() {
   document.querySelectorAll("[data-copy]").forEach((button) => {
     button.addEventListener("click", async () => {
       const input = document.getElementById(button.dataset.copy);
       try {
         await navigator.clipboard.writeText(input.value);
-        button.textContent = "Copiato!";
-        window.setTimeout(() => { button.textContent = "Copia"; }, 1600);
+        button.textContent = "Copiato ✓";
+        setTimeout(() => { button.textContent = "Copia"; }, 1600);
       } catch {
         input.focus();
         input.select();
-        const error = document.querySelector("#copy-error");
-        if (error) showMessage(error, "Copia non disponibile: seleziona e copia il testo manualmente.");
+        message(document.querySelector("#copy-error"), "Copia non disponibile: seleziona e copia il link.");
       }
     });
   });
 }
 
+function stopRefresh() {
+  window.clearInterval(refreshTimer);
+  refreshTimer = undefined;
+}
+
+function startRefresh(callback) {
+  stopRefresh();
+  refreshTimer = window.setInterval(callback, 4000);
+}
+
 function renderHome() {
+  stopRefresh();
   app.innerHTML = `
-    <section class="card hero">
-      <p class="eyebrow">Il regalo giusto, in segreto</p>
-      <h1>Babbo Natale<br><span>segreto.</span></h1>
-      <p class="intro">Organizza il sorteggio senza server: scambiate piccoli file JSON; l’app cifra ogni risultato per il partecipante a cui è destinato.</p>
-      <div class="notice"><span class="notice-icon" aria-hidden="true">✳</span><div><strong>Funziona anche da dispositivi diversi</strong><p>Le iscrizioni e il file dei risultati si passano manualmente, per esempio tramite un messaggio privato o un gruppo. Il codice personale non va condiviso con l’organizzatore.</p></div></div>
-      <form id="create-form">
-        <label for="title">Come si chiama il gruppo?</label>
-        <input id="title" maxlength="80" placeholder="es. Natale in famiglia" required>
-        <button class="button button-primary" type="submit">Crea il gruppo <span aria-hidden="true">→</span></button>
+    <section class="hero-card">
+      <div class="hero-sticker" aria-hidden="true">🎁</div>
+      <p class="eyebrow">LA MAGIA È NEL SEGRETO</p>
+      <h1>Regali, risate<br>e zero <span>spoiler.</span></h1>
+      <p class="hero-copy">Crea il tuo gruppo, invita la crew e lascia fare al sorteggio. Il tuo nome resta fuori dai radar: ricevi solo il tuo destinatario.</p>
+      <form id="create-form" class="create-form">
+        <label for="title">Dai un nome alla serata</label>
+        <div class="create-row">
+          <input id="title" maxlength="80" placeholder="Natale in famiglia…" autocomplete="off" required>
+          <button class="button button-primary" type="submit">Crea il gruppo <span aria-hidden="true">↗</span></button>
+        </div>
         <p id="create-error" class="message error" role="alert" hidden></p>
       </form>
-      <div id="created" class="created" hidden>
-        <p class="success-title">Gruppo pronto. Tieni al sicuro il link organizzatore.</p>
-        <label for="invite-link">Link d’iscrizione da condividere</label>
-        <div class="copy-row"><input id="invite-link" readonly><button class="button button-light" data-copy="invite-link">Copia</button></div>
-        <label for="organizer-link">Il tuo link organizzatore</label>
-        <div class="copy-row"><input id="organizer-link" readonly><button class="button button-light" data-copy="organizer-link">Copia</button></div>
-        <p id="copy-error" class="message error" role="alert" hidden></p>
-        <p class="hint">Le iscrizioni non vengono inviate automaticamente: ogni partecipante deve mandarti il proprio file JSON. Chi possiede il link organizzatore può avviare o azzerare il gruppo.</p>
-        <a id="open-organizer" class="button button-primary" href="#">Apri il pannello organizzatore <span aria-hidden="true">→</span></a>
-      </div>
     </section>
-    <section class="card transfer-card">
-      <p class="eyebrow">Hai ricevuto il file dei risultati?</p>
-      <h2>Scopri il tuo<br>abbinamento.</h2>
-      <p class="intro">Importa il JSON inviato dall’organizzatore, inserisci il tuo nome e il codice personale ricevuto al momento dell’iscrizione.</p>
-      <form id="import-results-form">
-        <label for="results-file">File JSON dei risultati</label>
-        <input id="results-file" type="file" accept=".json,application/json" required>
-        <label for="results-name">Il nome usato per iscriverti</label>
-        <input id="results-name" maxlength="80" autocomplete="off" required>
-        <label for="results-code">Il tuo codice personale</label>
-        <input id="results-code" autocomplete="off" spellcheck="false" required>
-        <button class="button button-primary" type="submit">Importa e scopri <span aria-hidden="true">→</span></button>
-        <p id="import-results-error" class="message error" role="alert" hidden></p>
-      </form>
-    </section>`;
-
-  document.querySelector("#create-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const error = document.querySelector("#create-error");
-    error.hidden = true;
-    const button = event.currentTarget.querySelector("button");
-    button.disabled = true;
-    try {
-      const title = document.querySelector("#title").value.trim();
-      if (!title || title.length > 80) throw new Error("Inserisci un nome del gruppo (massimo 80 caratteri).");
-      const id = crypto.randomUUID();
-      const organizerSecret = randomSecret();
-      const group = {
-        id,
-        roundId: crypto.randomUUID(),
-        title,
-        managerHash: await hashSecret(organizerSecret),
-        status: "open",
-        participants: [],
-        createdAt: new Date().toISOString(),
-      };
-      saveGroup(group);
-      document.querySelector("#invite-link").value = safeRouteLink("signup", group.roundId, title);
-      const organizerLink = safeRouteLink("manage", id, organizerSecret);
-      document.querySelector("#organizer-link").value = organizerLink;
-      document.querySelector("#open-organizer").href = organizerLink;
-      document.querySelector("#created").hidden = false;
-      button.textContent = "Gruppo creato";
-    } catch (reason) {
-      showMessage(error, reason);
-      button.disabled = false;
-    }
-  });
-
-  document.querySelector("#import-results-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const error = document.querySelector("#import-results-error");
-    error.hidden = true;
-    const button = event.currentTarget.querySelector("button");
-    button.disabled = true;
-    try {
-      const bundle = validateResultsPackage(await readJsonFile(document.querySelector("#results-file").files[0]));
-      const name = document.querySelector("#results-name").value.trim();
-      const code = document.querySelector("#results-code").value.trim();
-      await storeAndOpenResult(bundle, name, code);
-    } catch (reason) {
-      showMessage(error, reason);
-      button.disabled = false;
-    }
-  });
-
-  wireCopyButtons();
+    <section class="how-grid" aria-label="Come funziona">
+      <article class="how-card"><span class="step-number">01</span><span class="step-icon" aria-hidden="true">🪄</span><h2>Crea la crew</h2><p>Un link per il gruppo, un link privato per te.</p></article>
+      <article class="how-card"><span class="step-number">02</span><span class="step-icon" aria-hidden="true">🙋</span><h2>Fatevi sotto</h2><p>Ognuno si iscrive dal suo telefono, in un attimo.</p></article>
+      <article class="how-card"><span class="step-number">03</span><span class="step-icon" aria-hidden="true">🤫</span><h2>Shhh… sorpresa!</h2><p>Il risultato arriva al diretto interessato, non all’organizzatore.</p></article>
+    </section>
+    <p id="setup-note" class="setup-note" hidden>Ultimo passaggio: configura il progetto Supabase per attivare i gruppi condivisi.</p>`;
+  const configured = isSupabaseConfigured();
+  document.querySelector("#setup-note").hidden = configured;
+  document.querySelector("#create-form button").disabled = !configured;
+  document.querySelector("#create-form").addEventListener("submit", createGroup);
 }
 
-function renderUnavailable() {
-  app.innerHTML = `
-    <section class="card">
-      <p class="eyebrow">Gruppo non disponibile</p>
-      <h1>Questo gruppo<br><span>non è qui.</span></h1>
-      <p class="intro">I dati di gestione sono salvati nel browser dell’organizzatore. Apri il suo link organizzatore sul dispositivo in cui ha creato il gruppo.</p>
-      <a class="button button-primary" href="${pageUrl}">Torna all’inizio <span aria-hidden="true">→</span></a>
-    </section>`;
-}
-
-function renderSignup(groupId, title) {
-  if (!groupId || !title || title.length > 80) {
-    renderUnavailable();
-    return;
+async function createGroup(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector("button");
+  const error = document.querySelector("#create-error");
+  error.hidden = true;
+  button.disabled = true;
+  try {
+    const title = document.querySelector("#title").value.trim();
+    const inviteSecret = randomSecret();
+    const organizerSecret = randomSecret();
+    const created = firstRow(await callRpc("santa_create_draw", {
+      p_title: title,
+      p_invite_secret: inviteSecret,
+      p_organizer_secret: organizerSecret,
+    }));
+    showCreatedGroup(created.draw_id, created.draw_title, inviteSecret, organizerSecret);
+  } catch (reason) {
+    message(error, reason);
+    button.disabled = false;
   }
+}
 
+function showCreatedGroup(drawId, title, inviteSecret, organizerSecret) {
+  const inviteUrl = routeUrl("join", drawId, inviteSecret);
+  const organizerUrl = routeUrl("manage", drawId, organizerSecret, inviteSecret);
   app.innerHTML = `
-    <section class="card">
-      <p class="eyebrow">Iscrizione al sorteggio</p>
-      <h1 id="signup-title"></h1>
-      <p class="intro">Iscriviti e invia all’organizzatore il file JSON generato. Conserva il tuo codice personale: servirà per decifrare il risultato.</p>
-      <form id="join-form">
-        <label for="name">Il tuo nome</label>
+    <section class="result-card created-card">
+      <div class="success-burst" aria-hidden="true">✨</div>
+      <p class="eyebrow">GRUPPO IN PISTA</p>
+      <h1>${escapeHtml(title)}<br><span>è online!</span></h1>
+      <p class="hero-copy">Manda il link alla crew. Tieni il tuo link organizzatore super segreto.</p>
+      <label for="invite-link">LINK PER IL GRUPPO</label>
+      <div class="copy-row"><input id="invite-link" readonly><button class="button button-secondary" data-copy="invite-link">Copia</button></div>
+      <label for="organizer-link">IL TUO LINK PRIVATO</label>
+      <div class="copy-row"><input id="organizer-link" readonly><button class="button button-secondary" data-copy="organizer-link">Copia</button></div>
+      <p id="copy-error" class="message error" role="alert" hidden></p>
+      <a class="button button-primary button-wide" href="${organizerUrl}">Vai al pannello <span aria-hidden="true">↗</span></a>
+      <p class="tiny-note">Il pannello è protetto dal tuo link privato. Non condividerlo.</p>
+    </section>`;
+  document.querySelector("#invite-link").value = inviteUrl;
+  document.querySelector("#organizer-link").value = organizerUrl;
+  copyButtons();
+}
+
+function escapeHtml(text) {
+  const element = document.createElement("span");
+  element.textContent = text;
+  return element.innerHTML;
+}
+
+function renderJoin(drawId, inviteSecret) {
+  stopRefresh();
+  if (!drawId || !inviteSecret) return renderNotFound();
+  app.innerHTML = `
+    <section class="result-card">
+      <div class="hero-sticker small-sticker" aria-hidden="true">🎄</div>
+      <p class="eyebrow">SEI DEI NOSTRI?</p>
+      <h1 id="group-title">Un attimo…</h1>
+      <p class="hero-copy">Iscriviti con il tuo nome. Quando parte il sorteggio, il tuo risultato sarà qui, solo per te.</p>
+      <div id="joined-panel" class="joined-panel" hidden>
+        <span class="step-icon" aria-hidden="true">💌</span>
+        <div><h2>Ci sei!</h2><p>Salva il tuo codice personale: è la chiave per vedere il tuo abbinamento.</p>
+          <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
+          <a id="my-result-link" class="button button-primary button-wide" href="#">Salva il link al tuo risultato ↗</a>
+          <p id="copy-error" class="message error" role="alert" hidden></p>
+          <p class="tiny-note">Il codice è personale. Non inviarlo all’organizzatore né agli altri partecipanti.</p>
+        </div>
+      </div>
+      <form id="join-form" class="stack-form">
+        <label for="name">Come ti chiami?</label>
         <input id="name" maxlength="80" autocomplete="name" placeholder="Nome e cognome" required>
-        <button class="button button-primary" type="submit">Crea l’iscrizione <span aria-hidden="true">→</span></button>
+        <button class="button button-primary button-wide" type="submit">Iscrivimi al sorteggio <span aria-hidden="true">↗</span></button>
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
-      <div id="signup-ready" class="created" hidden>
-        <p class="success-title">Iscrizione pronta da inviare</p>
-        <label for="personal-code">Codice personale, da conservare e non condividere</label>
-        <div class="copy-row"><input id="personal-code" readonly><button class="button button-light" data-copy="personal-code">Copia codice</button></div>
-        <button id="download-registration" class="button button-primary" type="button">Scarica il file d’iscrizione JSON <span aria-hidden="true">↓</span></button>
-        <p id="copy-error" class="message error" role="alert" hidden></p>
-        <p class="hint">Invia solo il file JSON all’organizzatore, non il codice personale. Dopo il sorteggio, il file dei risultati verrà condiviso con il gruppo.</p>
-      </div>
+      <p id="group-state" class="state-line"></p>
     </section>`;
-  document.querySelector("#signup-title").textContent = title;
 
-  let registrationPackage;
-  document.querySelector("#join-form").addEventListener("submit", async (event) => {
+  const title = document.querySelector("#group-title");
+  const state = document.querySelector("#group-state");
+  const form = document.querySelector("#join-form");
+  async function refresh() {
+    try {
+      const current = firstRow(await callRpc("santa_group_info", {
+        p_draw_id: drawId,
+        p_invite_secret: inviteSecret,
+      }));
+      title.textContent = current.draw_title;
+      state.textContent = current.draw_status === "open"
+        ? `${current.participant_count} ${Number(current.participant_count) === 1 ? "persona iscritta" : "persone iscritte"} · iscrizioni aperte`
+        : "Il sorteggio è partito: le iscrizioni sono chiuse.";
+      form.hidden = current.draw_status !== "open" || !document.querySelector("#joined-panel").hidden;
+    } catch (reason) {
+      form.hidden = true;
+      message(state, reason);
+      stopRefresh();
+    }
+  }
+
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const button = form.querySelector("button");
     const error = document.querySelector("#join-error");
     error.hidden = true;
-    const button = event.currentTarget.querySelector("button");
     button.disabled = true;
     try {
       const name = document.querySelector("#name").value.trim();
-      if (!name || name.length > 80) throw new Error("Inserisci il tuo nome (massimo 80 caratteri).");
       const credentials = await createParticipantCredentials();
-      const participant = {
-        id: crypto.randomUUID(),
-        name,
-        publicKey: credentials.publicKey,
-        privateKeyCiphertext: credentials.privateKeyCiphertext,
-        privateKeyIv: credentials.privateKeyIv,
-      };
-      registrationPackage = createRegistrationPackage(groupId, title, participant);
+      const result = firstRow(await callRpc("santa_join_draw", {
+        p_draw_id: drawId,
+        p_invite_secret: inviteSecret,
+        p_name: name,
+        p_public_key: credentials.publicKey,
+        p_private_key_ciphertext: credentials.privateKeyCiphertext,
+        p_private_key_iv: credentials.privateKeyIv,
+        p_access_hash: await hashSecret(credentials.accessCode, "hex"),
+      }));
+      document.querySelector("#group-title").textContent = result.draw_title;
       document.querySelector("#personal-code").value = credentials.accessCode;
-      document.querySelector("#signup-ready").hidden = false;
-      event.currentTarget.hidden = true;
-      wireCopyButtons();
+      document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id);
+      document.querySelector("#joined-panel").hidden = false;
+      form.hidden = true;
+      copyButtons();
+      await refresh();
     } catch (reason) {
-      showMessage(error, reason);
+      message(error, reason);
       button.disabled = false;
     }
   });
-
-  document.querySelector("#download-registration").addEventListener("click", () => {
-    if (!registrationPackage) return;
-    const name = registrationPackage.participant.name
-      .normalize("NFKD")
-      .replace(/[^a-zA-Z0-9_-]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 40) || "partecipante";
-    downloadJson(registrationPackage, `iscrizione-${name}.json`);
-  });
+  refresh();
+  startRefresh(refresh);
 }
 
-async function storeAndOpenResult(bundle, name, code) {
-  const participant = bundle.assignments.find(
-    (entry) => entry.name.trim().toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
-  );
-  if (!participant) throw new Error("Nome o codice personale non validi.");
-  const recipient = await decryptAssignment(participant, code);
-  try {
-    localStorage.setItem(resultKey(bundle.groupId), JSON.stringify(bundle));
-  } catch {
-    throw new Error("Non è stato possibile salvare il file cifrato in questo browser.");
-  }
-  recentlyDecrypted.set(bundle.groupId, recipient);
-  location.hash = `result/${encodeURIComponent(bundle.groupId)}`;
-}
-
-function renderResult(groupId) {
-  let bundle = null;
-  try {
-    const stored = localStorage.getItem(resultKey(groupId));
-    if (stored) bundle = validateResultsPackage(JSON.parse(stored), groupId);
-  } catch {
-    try {
-      localStorage.removeItem(resultKey(groupId));
-    } catch {
-      // The result remains available for import again from the original JSON file.
-    }
-  }
-  if (!bundle) {
-    renderHome();
-    const error = document.querySelector("#import-results-error");
-    showMessage(error, "Non trovo il file dei risultati salvato qui: importalo di nuovo.");
-    return;
-  }
-
+function renderNotFound() {
+  stopRefresh();
   app.innerHTML = `
-    <section class="card">
-      <p class="eyebrow">Il tuo Babbo Natale segreto</p>
-      <h1 id="result-title"></h1>
-      <p class="intro">Il file dei risultati è salvato cifrato in questo browser. Inserisci il tuo nome e il codice personale per aprire il tuo abbinamento.</p>
-      <form id="open-result-form">
-        <label for="result-name">Il tuo nome</label>
-        <input id="result-name" maxlength="80" autocomplete="off" required>
-        <label for="result-code">Il tuo codice personale</label>
-        <input id="result-code" autocomplete="off" spellcheck="false" required>
-        <button class="button button-primary" type="submit">Scopri il tuo abbinamento <span aria-hidden="true">→</span></button>
+    <section class="result-card">
+      <div class="hero-sticker small-sticker" aria-hidden="true">🧭</div>
+      <p class="eyebrow">LINK DA RICONTROLLARE</p>
+      <h1>Ops, ci siamo<br><span>persi.</span></h1>
+      <p class="hero-copy">Il link non è completo o il gruppo non esiste più. Chiedi all’organizzatore di rimandartelo.</p>
+      <a class="button button-primary button-wide" href="${pageUrl}">Torna alla home ↗</a>
+    </section>`;
+}
+
+function renderResult(drawId, participantId) {
+  stopRefresh();
+  app.innerHTML = `
+    <section class="result-card result-reveal">
+      <div class="hero-sticker small-sticker" aria-hidden="true">🧦</div>
+      <p class="eyebrow">IL TUO SEGRETO È PRONTO</p>
+      <h1 id="result-title">Babbo Natale<br><span>segreto.</span></h1>
+      <p class="hero-copy">Inserisci il codice personale che hai ricevuto quando ti sei iscritto. L’abbinamento non viene mostrato agli altri.</p>
+      <form id="result-form" class="stack-form">
+        <label for="access-code">Il tuo codice personale</label>
+        <input id="access-code" autocomplete="off" spellcheck="false" placeholder="Incolla il tuo codice" required>
+        <button class="button button-primary button-wide" type="submit">Svela il destinatario ✨</button>
         <p id="result-error" class="message error" role="alert" hidden></p>
       </form>
-      <div id="assignment" class="assignment" hidden><p class="eyebrow">Il tuo destinatario</p><h2>Fai un regalo a…</h2><p id="recipient" class="recipient"></p><p class="hint">Ps: shhh, non dirlo a nessuno!</p></div>
-      <p class="message"><a href="${pageUrl}">Torna all’inizio</a></p>
+      <div id="assignment" class="assignment" hidden>
+        <span class="eyebrow">PREPARATI A FARE FELICE…</span>
+        <p id="recipient" class="recipient"></p>
+        <p class="tiny-note">Psst… bocca cucita fino a Natale 🤫</p>
+      </div>
     </section>`;
-  document.querySelector("#result-title").textContent = bundle.title;
-
-  const savedRecipient = recentlyDecrypted.get(groupId);
-  if (savedRecipient) showAssignment(savedRecipient);
-
-  document.querySelector("#open-result-form").addEventListener("submit", async (event) => {
+  document.querySelector("#result-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const button = event.currentTarget.querySelector("button");
     const error = document.querySelector("#result-error");
     error.hidden = true;
-    const button = event.currentTarget.querySelector("button");
     button.disabled = true;
     try {
-      const current = validateResultsPackage(
-        JSON.parse(localStorage.getItem(resultKey(groupId))),
-        groupId,
-      );
-      const name = document.querySelector("#result-name").value.trim();
-      const code = document.querySelector("#result-code").value.trim();
-      const participant = current.assignments.find(
-        (entry) => entry.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase(),
-      );
-      if (!participant) throw new Error("Nome o codice personale non validi.");
-      const recipient = await decryptAssignment(participant, code);
-      recentlyDecrypted.set(groupId, recipient);
-      showAssignment(recipient);
+      const code = document.querySelector("#access-code").value.trim();
+      const result = firstRow(await callRpc("santa_my_assignment", {
+        p_draw_id: drawId,
+        p_participant_id: participantId,
+        p_access_secret: await hashSecret(code, "hex"),
+      }));
+      const recipient = await decryptAssignment({
+        privateKeyCiphertext: result.private_key_ciphertext,
+        privateKeyIv: result.private_key_iv,
+        assignmentCiphertext: result.assignment_ciphertext,
+      }, code);
+      document.querySelector("#result-title").textContent = result.draw_title;
+      document.querySelector("#recipient").textContent = recipient;
+      document.querySelector("#assignment").hidden = false;
+      event.currentTarget.hidden = true;
     } catch (reason) {
-      showMessage(error, reason instanceof SyntaxError ? "File dei risultati non valido." : reason);
+      message(error, reason);
     } finally {
       button.disabled = false;
     }
   });
 }
 
-function showAssignment(recipient) {
-  document.querySelector("#recipient").textContent = recipient;
-  document.querySelector("#assignment").hidden = false;
-}
-
-function renderManager(groupId, organizerSecret) {
-  let group;
-  try {
-    group = loadGroup(groupId);
-  } catch (reason) {
-    app.innerHTML = `<section class="card"><p class="message error"></p></section>`;
-    showMessage(document.querySelector(".message"), reason);
-    return;
-  }
-  if (!group) {
-    renderUnavailable();
-    return;
-  }
+function renderManager(drawId, organizerSecret, inviteSecret) {
+  stopRefresh();
+  if (!drawId || !organizerSecret) return renderNotFound();
   app.innerHTML = `
-    <section class="card">
-      <p class="eyebrow">Il tuo pannello organizzatore</p>
-      <h1 id="manager-title"></h1>
-      <p class="intro">Importa i file d’iscrizione ricevuti, avvia il sorteggio e invia il JSON cifrato a tutti. Ogni partecipante può decifrare solo il proprio risultato.</p>
-      <div class="status-card"><span>Persone iscritte</span><strong id="participant-count">—</strong><span id="draw-status" class="status-pill"></span></div>
-      <div id="registration-section">
-        <form id="import-registrations-form">
-          <label for="registrations-file">File d’iscrizione JSON (seleziona uno o più file)</label>
-          <input id="registrations-file" type="file" accept=".json,application/json" multiple required>
-          <button class="button button-light" type="submit">Importa iscrizioni</button>
-          <p id="import-error" class="message error" role="alert" hidden></p>
-        </form>
-      </div>
-      <div id="participant-list" class="participant-list" hidden></div>
+    <section class="result-card organizer-card">
+      <div class="eyebrow-row"><span class="eyebrow">PANNELLO ORGANIZZATORE</span><span class="admin-badge">SOLO TU 🔒</span></div>
+      <h1 id="manager-title">Un attimo…</h1>
+      <p class="hero-copy">La crew si iscrive da qualsiasi dispositivo. Tu fai partire il sorteggio: ogni persona riceve solo il suo abbinamento.</p>
+      <div class="manager-stats"><div><span>ISCRITTI</span><strong id="participant-count">—</strong></div><span id="draw-status" class="status-pill">Caricamento…</span></div>
+      <div id="participants" class="participant-list"></div>
       <div class="actions">
-        <button id="draw-button" class="button button-primary" type="button">Avvia il sorteggio</button>
-        <button id="download-results" class="button button-light" type="button" hidden>Scarica JSON cifrato dei risultati</button>
-        <button id="reset-button" class="button button-light" type="button">Azzera gruppo</button>
+        <button id="draw-button" class="button button-primary button-wide" type="button">Fai partire la magia ✨</button>
+        <button id="reset-button" class="button button-secondary button-wide" type="button">Azzera e riparti</button>
       </div>
-      <p id="manager-message" class="message" role="status" hidden></p>
+      <p id="manager-message" class="message success-message" role="status" hidden></p>
       <p id="manager-error" class="message error" role="alert" hidden></p>
       <div class="share-box">
-        <label for="group-link">Link d’iscrizione</label>
-        <div class="copy-row"><input id="group-link" readonly><button class="button button-light" data-copy="group-link">Copia</button></div>
+        <label for="invite-link">LINK DA INVIARE ALLA CREW</label>
+        <div class="copy-row"><input id="invite-link" readonly><button class="button button-secondary" data-copy="invite-link">Copia</button></div>
         <p id="copy-error" class="message error" role="alert" hidden></p>
-        <p class="hint">Invia a ogni partecipante il link per iscriversi. Poi importa i JSON che ti mandano; dopo il sorteggio, condividi il file dei risultati nel gruppo. Il reset apre un nuovo turno e non può revocare file già scaricati.</p>
       </div>
     </section>`;
-
-  document.querySelector("#manager-title").textContent = group.title;
   const error = document.querySelector("#manager-error");
-  const message = document.querySelector("#manager-message");
+  const statusMessage = document.querySelector("#manager-message");
   let busy = false;
 
-  async function currentGroup() {
-    const current = loadGroup(groupId);
-    if (!current || (await hashSecret(organizerSecret)) !== current.managerHash) {
-      throw new Error("Link organizzatore non valido.");
-    }
-    return current;
+  async function adminState() {
+    return firstRow(await callRpc("santa_organizer_state", {
+      p_draw_id: drawId,
+      p_organizer_secret: organizerSecret,
+    }));
   }
 
-  async function refreshManagerView() {
+  async function refresh() {
     try {
-      const current = await currentGroup();
-      document.querySelector("#group-link").value = safeRouteLink(
-        "signup",
-        current.roundId,
-        current.title,
-      );
-      document.querySelector("#participant-count").textContent = current.participants.length;
-      document.querySelector("#draw-status").textContent = current.status === "drawn" ? "Sorteggio avviato" : "Iscrizioni aperte";
-      document.querySelector("#draw-button").disabled = busy || current.status === "drawn" || current.participants.length < 2;
-      document.querySelector("#reset-button").disabled = busy || (current.status === "open" && current.participants.length === 0);
-      document.querySelector("#download-results").hidden = current.status !== "drawn" || !current.resultsPackage;
-      const list = document.querySelector("#participant-list");
-      list.hidden = current.participants.length === 0;
-      list.replaceChildren();
-      for (const participant of current.participants) {
-        const item = document.createElement("div");
-        item.className = "participant-item";
+      const state = await adminState();
+      document.querySelector("#manager-title").textContent = state.draw_title;
+      document.querySelector("#participant-count").textContent = state.participant_count;
+      document.querySelector("#draw-status").textContent = state.draw_status === "drawn" ? "Sorteggio partito" : "Iscrizioni aperte";
+      document.querySelector("#invite-link").value = routeUrl("join", drawId, inviteSecret);
+      document.querySelector("#draw-button").disabled = busy || state.draw_status !== "open" || state.participant_count < 2;
+      document.querySelector("#reset-button").disabled = busy || (state.draw_status === "open" && state.participant_count === 0);
+
+      const list = firstRow(await callRpc("santa_organizer_participants", {
+        p_draw_id: drawId,
+        p_organizer_secret: organizerSecret,
+      })).participants;
+      const container = document.querySelector("#participants");
+      container.replaceChildren();
+      for (const participant of list) {
+        const row = document.createElement("div");
+        row.className = "participant-item";
         const name = document.createElement("span");
         name.textContent = participant.name;
-        const state = document.createElement("span");
-        state.className = "status-pill";
-        state.textContent = current.status === "drawn" ? "Risultato cifrato" : "Iscritto";
-        item.append(name, state);
-        list.append(item);
+        const joined = document.createElement("span");
+        joined.className = "participant-check";
+        joined.textContent = "ISCRITTO ✓";
+        row.append(name, joined);
+        container.append(row);
       }
-      document.querySelector("#registration-section").hidden = current.status !== "open";
     } catch (reason) {
-      showMessage(error, reason);
+      message(error, reason);
       document.querySelector("#draw-button").disabled = true;
       document.querySelector("#reset-button").disabled = true;
     }
   }
 
-  document.querySelector("#import-registrations-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const importError = document.querySelector("#import-error");
-    importError.hidden = true;
-    const button = event.currentTarget.querySelector("button");
-    button.disabled = true;
-    try {
-      const current = await currentGroup();
-      if (current.status !== "open") throw new Error("Le iscrizioni sono chiuse.");
-      const files = Array.from(document.querySelector("#registrations-file").files || []);
-      if (!files.length) throw new Error("Seleziona almeno un file d’iscrizione.");
-      let totalBytes = 0;
-      const packages = [];
-      for (const file of files) {
-        totalBytes += file.size;
-        if (totalBytes > 10_000_000) throw new Error("I file selezionati superano il limite complessivo di 10 MB.");
-        const registration = validateRegistrationPackage(
-          await readJsonFile(file),
-          current.roundId,
-        );
-        if (registration.title !== current.title) {
-          throw new Error("Il file d’iscrizione appartiene a un altro gruppo.");
-        }
-        packages.push(registration);
-      }
-      const participants = [...current.participants];
-      for (const registration of packages) {
-        const participant = registration.participant;
-        if (participants.some((existing) => existing.id === participant.id)) {
-          throw new Error(`L’iscrizione di ${participant.name} è già stata importata.`);
-        }
-        if (participants.some((existing) => existing.name.trim().toLocaleLowerCase() === participant.name.trim().toLocaleLowerCase())) {
-          throw new Error(`Il nome “${participant.name}” è già iscritto.`);
-        }
-        participants.push({ ...participant, assignmentCiphertext: null });
-      }
-      if (participants.length > 500) throw new Error("Il gruppo può avere al massimo 500 iscritti.");
-      current.participants = participants;
-      saveGroup(current);
-      document.querySelector("#registrations-file").value = "";
-      showMessage(message, `Importate ${packages.length} ${packages.length === 1 ? "iscrizione" : "iscrizioni"}.`);
-      await refreshManagerView();
-    } catch (reason) {
-      showMessage(importError, reason);
-    } finally {
-      button.disabled = false;
-    }
-  });
-
   document.querySelector("#draw-button").addEventListener("click", async () => {
-    error.hidden = true;
-    message.hidden = true;
     busy = true;
-    await refreshManagerView();
+    error.hidden = true;
+    statusMessage.hidden = true;
+    await refresh();
     try {
-      const current = await currentGroup();
-      if (current.status !== "open" || current.participants.length < 2) {
+      const state = await adminState();
+      if (state.draw_status !== "open" || state.participant_count < 2) {
         throw new Error("Servono almeno due iscritti e le iscrizioni devono essere aperte.");
       }
-      const assignments = createDerangement(current.participants.map((participant) => participant.id));
-      const encryptedParticipants = [];
-      for (const participant of current.participants) {
-        const recipient = current.participants.find((entry) => entry.id === assignments[participant.id]);
-        encryptedParticipants.push({
-          ...participant,
-          assignmentCiphertext: await encryptAssignment(participant.publicKey, recipient.name),
-        });
+      const participantResponse = firstRow(await callRpc("santa_organizer_participants", {
+        p_draw_id: drawId,
+        p_organizer_secret: organizerSecret,
+      }));
+      const participants = participantResponse.participants;
+      if (participants.length !== Number(state.participant_count)) {
+        throw new Error("Le iscrizioni sono cambiate durante il sorteggio. Riprova.");
       }
-      current.participants = encryptedParticipants;
-      current.resultsPackage = createResultsPackage(current.roundId, current.title, encryptedParticipants);
-      current.status = "drawn";
-      current.drawnAt = new Date().toISOString();
-      saveGroup(current);
-      downloadJson(current.resultsPackage, `risultati-${current.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.json`);
-      showMessage(message, "Sorteggio pronto. Invia il file JSON cifrato a tutti i partecipanti.");
+      const mapping = createDerangement(participants.map((participant) => participant.id));
+      const assignments = await Promise.all(participants.map(async (participant) => {
+        const recipient = participants.find((entry) => entry.id === mapping[participant.id]);
+        return {
+          participant_id: participant.id,
+          recipient_id: recipient.id,
+          assignment_ciphertext: await encryptAssignment(participant.public_key, recipient.name),
+        };
+      }));
+      await callRpc("santa_complete_draw", {
+        p_draw_id: drawId,
+        p_organizer_secret: organizerSecret,
+        p_assignments: assignments,
+      });
+      message(statusMessage, "Sorteggio pronto! Ogni partecipante può aprire il proprio link per scoprire il regalo. 🎉");
     } catch (reason) {
-      showMessage(error, reason);
+      message(error, reason);
     } finally {
       busy = false;
-      await refreshManagerView();
-    }
-  });
-
-  document.querySelector("#download-results").addEventListener("click", async () => {
-    try {
-      const current = await currentGroup();
-      const resultPackage = validateResultsPackage(current.resultsPackage, current.roundId);
-      downloadJson(resultPackage, `risultati-${current.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.json`);
-    } catch (reason) {
-      showMessage(error, reason);
+      await refresh();
     }
   });
 
   document.querySelector("#reset-button").addEventListener("click", async () => {
-    if (!window.confirm("Azzerare il gruppo e iniziare un nuovo turno? I file già inviati non possono essere revocati.")) return;
-    error.hidden = true;
-    message.hidden = true;
+    if (!window.confirm("Azzerare il gruppo? Le iscrizioni e il sorteggio verranno cancellati.")) return;
     busy = true;
-    await refreshManagerView();
+    error.hidden = true;
+    statusMessage.hidden = true;
     try {
-      const current = await currentGroup();
-      current.roundId = crypto.randomUUID();
-      current.participants = [];
-      current.status = "open";
-      delete current.resultsPackage;
-      delete current.drawnAt;
-      saveGroup(current);
-      showMessage(message, "Gruppo azzerato. Condividi il nuovo link d’iscrizione del pannello.");
+      await callRpc("santa_reset_draw", {
+        p_draw_id: drawId,
+        p_organizer_secret: organizerSecret,
+      });
+      message(statusMessage, "Gruppo azzerato. Condividi di nuovo il link d’iscrizione. 🎄");
     } catch (reason) {
-      showMessage(error, reason);
+      message(error, reason);
     } finally {
       busy = false;
-      await refreshManagerView();
+      await refresh();
     }
   });
 
-  wireCopyButtons();
-  refreshManagerView();
-  startRefresh(refreshManagerView);
+  copyButtons();
+  refresh();
+  startRefresh(refresh);
 }
 
-async function render() {
-  window.clearInterval(pageRefreshTimer);
-  const [kind, id, third] = route();
-  if (kind === "signup" && id && third) {
-    renderSignup(id, third);
-  } else if (kind === "manage" && id && third) {
-    renderManager(id, third);
-  } else if (kind === "result" && id) {
-    renderResult(id);
+function render() {
+  stopRefresh();
+  const [kind, id, secret, extraSecret] = route();
+  if (kind === "join" && id && secret) {
+    renderJoin(id, secret);
+  } else if (kind === "manage" && id && secret && extraSecret) {
+    renderManager(id, secret, extraSecret);
+  } else if (kind === "result" && id && secret) {
+    renderResult(id, secret);
   } else {
     renderHome();
   }

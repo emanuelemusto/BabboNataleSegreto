@@ -1,48 +1,53 @@
 # Babbo Natale segreto
 
-Web app statica in italiano, pubblicabile su GitHub Pages. Non richiede un backend, un database o servizi esterni. I partecipanti possono usare dispositivi diversi scambiando manualmente file JSON.
+Web app italiana per i sorteggi, ospitata su GitHub Pages con iscritti e abbinamenti conservati in Supabase. Chi partecipa usa il proprio dispositivo; l’organizzatore non riceve il destinatario assegnato a ciascuno.
 
-## Flusso del sorteggio
+## Configura Supabase (una tantum)
 
-1. L’organizzatore crea il gruppo nel proprio browser e condivide il link d’iscrizione. Il link organizzatore e i dati di gestione sono conservati nel browser usato per creare il gruppo.
-2. Ogni partecipante apre il link sul proprio dispositivo, inserisce il nome e scarica il file JSON d’iscrizione. L’app mostra anche un codice personale, da conservare senza inviarlo all’organizzatore.
-3. I partecipanti inviano privatamente i propri JSON all’organizzatore. Dal pannello, l’organizzatore importa uno o più file e avvia il sorteggio.
-4. L’app scarica un solo JSON dei risultati, con i destinatari cifrati per i rispettivi partecipanti. L’organizzatore lo condivide con il gruppo.
-5. Ogni partecipante importa quel JSON dal proprio telefono o computer e inserisce il nome e il codice personale. L’app decifra e mostra il suo destinatario, poi salva nel browser **il file cifrato**, non il nome del destinatario. Per visualizzarlo di nuovo basta riaprire la pagina del risultato e inserire il codice.
+1. Crea un progetto gratuito su [supabase.com](https://supabase.com/).
+2. Nel progetto apri **SQL Editor**, crea una query e incolla il contenuto di `supabase/migrations/202611260001_secret_santa.sql`; poi eseguila.
+3. Dalla pagina **Project Settings → API** copia il Project URL e la chiave pubblica **anon / legacy JWT**. Non usare mai la `service_role` o una chiave segreta nel sito.
+4. Inserisci URL e chiave in `static/config.js`:
 
-Non condividere il codice personale insieme al file d’iscrizione: file e codice devono viaggiare separatamente. I dati dei partecipanti nel JSON condiviso sono visibili, ma i destinatari sono cifrati con chiavi individuali.
+   ```js
+   window.SECRET_SANTA_CONFIG = {
+     supabaseUrl: "https://TUO-PROGETTO.supabase.co",
+     supabaseAnonKey: "LA-TUA-CHIAVE-PUBBLICA-ANON",
+   };
+   ```
 
-## Limiti senza backend
+   La chiave `anon` è visibile agli utenti del sito per definizione: l’accesso è limitato dalle funzioni SQL e dalle tabelle senza accesso diretto. Non inserire mai chiavi `service_role`.
+5. Salva e fai push. Il workflow pubblica il sito su GitHub Pages. In **Settings → Pages**, seleziona **GitHub Actions** come sorgente e verifica che le Actions siano abilitate.
 
-GitHub Pages non conserva né sincronizza dati. La trasmissione dei file avviene a mano, ad esempio tramite messaggi privati o il gruppo della festa; il sito non li invia. L’organizzatore deve conservare il browser e i dati del sito su cui ha creato il gruppo. Se li cancella o cambia browser, il pannello e le iscrizioni importate non sono recuperabili senza backup.
+## Come si usa
 
-Il pannello non mostra gli abbinamenti e il JSON protegge i risultati con cifratura a chiave pubblica. Tuttavia, senza un server fidato o un protocollo distribuito, l’estrazione avviene nel browser dell’organizzatore: una persona che controlla quel dispositivo può ispezionare o modificare l’applicazione. Non è quindi una garanzia contro un organizzatore intenzionalmente ostile o un dispositivo compromesso.
+1. L’organizzatore crea il gruppo e condivide il link d’invito. Conserva privato il link del pannello organizzatore.
+2. Ogni partecipante apre l’invito dal proprio telefono o computer e si iscrive. Il browser genera una chiave personale e mostra un codice da copiare e conservare.
+3. Quando ci sono almeno due iscritti, l’organizzatore avvia il sorteggio dal pannello. I partecipanti possono aprire il proprio link dei risultati e inserire il codice personale per vedere il destinatario.
+4. **Azzera e riparti** elimina gli iscritti e i risultati del gruppo, riaprendo le iscrizioni. I link di invito e organizzatore restano validi.
 
-**Azzera gruppo** elimina le iscrizioni importate sul browser dell’organizzatore e apre un nuovo turno con un nuovo link d’iscrizione. Non può cancellare i file JSON già scaricati o inoltrati né revocare risultati che qualcuno ha già aperto.
+Non è previsto l’invio automatico di email: il sito non raccoglie indirizzi email. Ogni partecipante riceve il link al proprio risultato dopo l’iscrizione; può salvarlo e tornare ad aprirlo quando il sorteggio è pronto.
 
-## Pubblicazione su GitHub Pages
+## Privacy e limiti
 
-Il workflow in `.github/workflows/deploy-pages.yml` pubblica i file statici su ogni push al branch `main`.
+Supabase conserva i dati condivisi e le chiavi private dei partecipanti **cifrate** con il rispettivo codice personale; ogni assegnazione è cifrata per il partecipante destinatario. Le tabelle non consentono accesso diretto tramite la chiave pubblica del sito: le funzioni SQL verificano i link privati, i codici e l’identità del partecipante. L’organizzatore può vedere il gruppo e gli iscritti, ma il pannello non mostra gli abbinamenti.
 
-1. Nel repository GitHub apri **Settings → Pages**.
-2. In **Build and deployment**, seleziona **GitHub Actions** come source.
-3. Esegui un push su `main` (o avvia **Deploy GitHub Pages** dalla scheda Actions).
-4. Attendi il completamento del workflow e apri l’indirizzo Pages mostrato da GitHub.
+Il link organizzatore e il link d’invito sono credenziali: chi li riceve può usare le funzioni che autorizzano. Non condividere il link organizzatore. Chi controlla il browser o modifica il codice JavaScript del sorteggio può ispezionare ciò che quel browser elabora; per verificabilità indipendente servirebbe un protocollo di sorteggio distribuito.
 
-L’app funziona anche sul percorso Pages di un repository, non solo su un dominio personalizzato.
+Supabase è un servizio esterno: i nomi e i dati cifrati risiedono nel progetto scelto. Il piano gratuito ha limiti e politiche di conservazione che dipendono da Supabase. Esegui backup se vuoi conservare lo storico.
 
-## Test locali
+## Verifiche locali
 
-I test richiedono Node.js 20 o successivo e non richiedono dipendenze aggiuntive:
+Richiede Node.js 20 o successivo; non servono dipendenze aggiuntive:
 
 ```powershell
 node --test tests/*.test.mjs
 ```
 
-Per provare l’app in locale, avvia un server statico dalla cartella del repository:
+Per provare il sito in locale:
 
 ```powershell
 python -m http.server 8000
 ```
 
-Apri <http://localhost:8000>. Le API crittografiche del browser sono disponibili su localhost e su GitHub Pages via HTTPS.
+Apri <http://localhost:8000>. Le API crittografiche del browser funzionano su localhost e su GitHub Pages via HTTPS.

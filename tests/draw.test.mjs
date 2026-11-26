@@ -6,13 +6,8 @@ import {
   createParticipantCredentials,
   decryptAssignment,
   encryptAssignment,
+  hashSecret,
 } from "../static/crypto.mjs";
-import {
-  createRegistrationPackage,
-  createResultsPackage,
-  validateRegistrationPackage,
-  validateResultsPackage,
-} from "../static/packages.mjs";
 
 test("creates a complete derangement without self-assignments", () => {
   for (const participantIds of [
@@ -33,6 +28,13 @@ test("rejects impossible or ambiguous participant lists", () => {
   assert.throws(() => createDerangement(["same", "same"]), TypeError);
 });
 
+test("hashSecret produces the same SHA-256 digest used by the database", async () => {
+  assert.equal(
+    await hashSecret("abc", "hex"),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+  );
+});
+
 test("only the matching participant code decrypts a private assignment", async () => {
   const participant = await createParticipantCredentials();
   participant.assignmentCiphertext = await encryptAssignment(
@@ -46,53 +48,10 @@ test("only the matching participant code decrypts a private assignment", async (
   await assert.rejects(() => decryptAssignment(participant, "codice-sbagliato"));
 });
 
-test("registration files exclude the personal code and are tied to their group", async () => {
-  const credentials = await createParticipantCredentials();
-  const registration = createRegistrationPackage("round-1", "Natale", {
-    id: "ada-id",
-    name: "Ada",
-    publicKey: credentials.publicKey,
-    privateKeyCiphertext: credentials.privateKeyCiphertext,
-    privateKeyIv: credentials.privateKeyIv,
-  });
-  const serialized = JSON.stringify(registration);
-  assert.equal(serialized.includes(credentials.accessCode), false);
-  assert.equal(validateRegistrationPackage(registration, "round-1").participant.name, "Ada");
-  assert.throws(() => validateRegistrationPackage(registration, "round-2"));
+test("hybrid encryption supports long names and rejects another participant's code", async () => {
+  const participant = await createParticipantCredentials();
+  const recipientName = "🎄".repeat(80);
+  participant.assignmentCiphertext = await encryptAssignment(participant.publicKey, recipientName);
+  assert.equal(await decryptAssignment(participant, participant.accessCode), recipientName);
+  await assert.rejects(() => decryptAssignment(participant, "codice-sbagliato"));
 });
-
-test("a shared results JSON reveals an assignment only with its owner's code", async () => {
-  const names = ["Ada", "Bruno", "Cleo"];
-  const participants = await Promise.all(names.map(async (name, index) => ({
-    id: `participant-${index}`,
-    name,
-    ...(await createParticipantCredentials()),
-  })));
-  const assignments = createDerangement(participants.map(({ id }) => id), webcrypto);
-  const drawEntries = await Promise.all(participants.map(async (participant) => ({
-    id: participant.id,
-    name: participant.name,
-    privateKeyCiphertext: participant.privateKeyCiphertext,
-    privateKeyIv: participant.privateKeyIv,
-    assignmentCiphertext: await encryptAssignment(
-      participant.publicKey,
-      participants.find(({ id }) => id === assignments[participant.id]).name,
-    ),
-  })));
-  const results = validateResultsPackage(
-    createResultsPackage("round-1", "Natale", drawEntries),
-    "round-1",
-  );
-
-  for (const participant of participants) {
-    const encryptedResult = results.assignments.find(({ id }) => id === participant.id);
-    const recipient = await decryptAssignment(encryptedResult, participant.accessCode);
-    assert.notEqual(recipient, participant.name);
-    await assert.rejects(() => decryptAssignment(encryptedResult, randomInvalidCode()));
-  }
-  assert.throws(() => validateResultsPackage(results, "another-round"));
-});
-
-function randomInvalidCode() {
-  return "codice-errato-non-corrispondente";
-}
