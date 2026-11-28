@@ -36,6 +36,15 @@ function saveParticipantSession(drawId, participantId, accessCode) {
   }
 }
 
+function removeParticipantSession(drawId) {
+  try {
+    localStorage.removeItem(participantSessionKey(drawId));
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 function getParticipantSession(drawId, participantId) {
   try {
     const saved = localStorage.getItem(participantSessionKey(drawId));
@@ -171,7 +180,7 @@ function renderJoin(drawId, inviteSecret) {
           <div class="copy-row"><input id="personal-code" readonly><button class="button button-secondary" data-copy="personal-code">Copia codice</button></div>
           <a id="my-result-link" class="button button-primary button-wide" href="#">Apri il tuo abbinamento</a>
           <p id="copy-error" class="message error" role="alert" hidden></p>
-          <p class="tiny-note">Il browser salva il codice su questo dispositivo. Conservalo comunque come alternativa: l’organizzatore non può recuperarlo.</p>
+          <p class="code-warning" role="alert"><strong>Importante:</strong> salva subito questo codice personale in un luogo sicuro. Se lo perdi, non sarà possibile recuperarlo e non potrai vedere il tuo abbinamento. Nemmeno l’organizzatore può recuperarlo.</p>
         </div>
       </div>
       <form id="join-form" class="stack-form">
@@ -208,6 +217,10 @@ function renderJoin(drawId, inviteSecret) {
   const title = document.querySelector("#group-title");
   const state = document.querySelector("#group-state");
   const form = document.querySelector("#join-form");
+  let sessionChecked = false;
+  let savedSession = null;
+  let sessionWasReset = false;
+
   async function refresh() {
     try {
       const current = firstRow(await callRpc("santa_group_info", {
@@ -227,14 +240,39 @@ function renderJoin(drawId, inviteSecret) {
         participantList.append(item);
       }
       participantEmpty.hidden = participantNames.length > 0;
-      const savedSession = getParticipantSession(drawId, null);
+      if (!sessionChecked) {
+        const storedSession = getParticipantSession(drawId, null);
+        if (storedSession) {
+          try {
+            const participant = firstRow(await callRpc("santa_find_participant", {
+              p_draw_id: drawId,
+              p_access_secret: await hashSecret(storedSession.accessCode, "hex"),
+            }));
+            savedSession = {
+              participantId: participant.participant_id,
+              accessCode: storedSession.accessCode,
+            };
+            if (participant.participant_id !== storedSession.participantId) {
+              saveParticipantSession(drawId, participant.participant_id, storedSession.accessCode);
+            }
+          } catch (reason) {
+            if (!reason.message.includes("Codice personale non valido per questo gruppo.")) throw reason;
+            removeParticipantSession(drawId);
+            sessionWasReset = true;
+          }
+        }
+        sessionChecked = true;
+      }
       state.textContent = current.draw_status === "open"
         ? savedSession
           ? "Il sorteggio non è ancora stato effettuato. Sei già iscritto: torna qui quando l’organizzatore lo avrà avviato."
-          : `Il sorteggio non è ancora stato effettuato. Ci sono ${current.participant_count} ${Number(current.participant_count) === 1 ? "persona iscritta" : "persone iscritte"} e le iscrizioni sono ancora aperte.`
+          : sessionWasReset
+            ? "La vecchia iscrizione è stata azzerata. Ora puoi iscriverti di nuovo."
+            : `Il sorteggio non è ancora stato effettuato. Ci sono ${current.participant_count} ${Number(current.participant_count) === 1 ? "persona iscritta" : "persone iscritte"} e le iscrizioni sono ancora aperte.`
         : savedSession
           ? "Sorteggio completato. Puoi aprire il tuo abbinamento qui sotto."
           : "Sorteggio completato. Per vedere il tuo risultato, apri il link personale che hai salvato.";
+      if (sessionWasReset) document.querySelector("#joined-panel").hidden = true;
       state.classList.toggle("draw-notice-complete", current.draw_status === "drawn");
       const resultLink = document.querySelector("#invite-result-link");
       document.querySelector(".returning-participant").hidden = Boolean(savedSession);
@@ -271,6 +309,9 @@ function renderJoin(drawId, inviteSecret) {
         p_access_hash: await hashSecret(credentials.accessCode, "hex"),
       }));
       const sessionSaved = saveParticipantSession(drawId, result.participant_id, credentials.accessCode);
+      savedSession = { participantId: result.participant_id, accessCode: credentials.accessCode };
+      sessionChecked = true;
+      sessionWasReset = false;
       document.querySelector("#group-title").textContent = result.draw_title;
       document.querySelector("#personal-code").value = credentials.accessCode;
       document.querySelector("#my-result-link").href = routeUrl("result", drawId, result.participant_id);
@@ -302,6 +343,9 @@ function renderJoin(drawId, inviteSecret) {
         p_access_secret: await hashSecret(code, "hex"),
       }));
       const sessionSaved = saveParticipantSession(drawId, participant.participant_id, code);
+      savedSession = { participantId: participant.participant_id, accessCode: code };
+      sessionChecked = true;
+      sessionWasReset = false;
       if (participant.draw_status === "drawn") {
         window.location.assign(routeUrl("result", drawId, participant.participant_id));
         return;

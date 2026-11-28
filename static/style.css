@@ -67,6 +67,7 @@ input:focus { border-color: #839a8a; box-shadow: 0 0 0 3px rgba(67, 110, 85, .12
 .joined-mark { display: grid; flex: 0 0 24px; width: 24px; height: 24px; place-items: center; border: 1px solid #b9c9bd; border-radius: 50%; color: var(--green); font-size: 12px; }
 .joined-panel h2 { margin-bottom: 5px; }
 .joined-panel p { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.joined-panel .code-warning { margin: 12px 0 0; padding: 10px 12px; border: 1px solid #e8b8b3; border-left: 3px solid #a83d35; border-radius: 4px; background: #fff3f2; color: #8f302a; }
 .joined-panel .copy-row { margin-bottom: 10px; }
 .joined-panel .copy-row input { font-size: 11px; }
 .state-line { margin: 17px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
