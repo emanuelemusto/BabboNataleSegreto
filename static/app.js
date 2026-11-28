@@ -189,9 +189,11 @@ function renderJoin(drawId, inviteSecret) {
         <button class="button button-primary button-wide" type="submit">Partecipa al sorteggio</button>
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
-      <button id="reset-participation" class="button button-secondary button-wide" type="button">Non sei ancora iscritto al gruppo? Premi qui per resettare la tua partecipazione</button>
-      <p class="tiny-note">Cancella solo la sessione salvata su questo browser e ricarica la pagina. Non rimuove un’iscrizione ancora presente nel gruppo.</p>
-      <p id="reset-participation-error" class="message error" role="alert" hidden></p>
+      <div id="reset-participation-panel" hidden>
+        <button id="reset-participation" class="button button-secondary button-wide" type="button">Non sei ancora iscritto al gruppo? Premi qui per resettare la tua partecipazione</button>
+        <p class="tiny-note">Cancella solo la sessione salvata su questo browser e ricarica la pagina. Non rimuove un’iscrizione ancora presente nel gruppo.</p>
+        <p id="reset-participation-error" class="message error" role="alert" hidden></p>
+      </div>
       <p id="group-state" class="draw-notice participant-draw-notice" role="status">Verifica stato sorteggio…</p>
       <section class="participant-preview" aria-labelledby="participant-preview-title">
         <div class="participant-preview-heading">
@@ -301,6 +303,7 @@ function renderJoin(drawId, inviteSecret) {
       state.classList.toggle("draw-notice-complete", current.draw_status === "drawn");
       const resultLink = document.querySelector("#invite-result-link");
       document.querySelector(".returning-participant").hidden = Boolean(savedSession);
+      document.querySelector("#reset-participation-panel").hidden = !savedSession;
       if (current.draw_status === "drawn" && savedSession) {
         resultLink.href = routeUrl("result", drawId, savedSession.participantId);
         resultLink.hidden = false;
