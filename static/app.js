@@ -220,6 +220,8 @@ function renderJoin(drawId, inviteSecret) {
   let sessionChecked = false;
   let savedSession = null;
   let sessionWasReset = false;
+  let lastSessionCheck = 0;
+  let lastParticipantCount = null;
 
   async function refresh() {
     try {
@@ -240,7 +242,15 @@ function renderJoin(drawId, inviteSecret) {
         participantList.append(item);
       }
       participantEmpty.hidden = participantNames.length > 0;
-      if (!sessionChecked) {
+      const participantCount = Number(current.participant_count);
+      const now = Date.now();
+      if (
+        !sessionChecked ||
+        participantCount !== lastParticipantCount ||
+        now - lastSessionCheck >= 15000
+      ) {
+        const previousSession = savedSession;
+        savedSession = null;
         const storedSession = getParticipantSession(drawId, null);
         if (storedSession) {
           try {
@@ -260,8 +270,12 @@ function renderJoin(drawId, inviteSecret) {
             removeParticipantSession(drawId);
             sessionWasReset = true;
           }
+        } else if (previousSession) {
+          sessionWasReset = true;
         }
         sessionChecked = true;
+        lastSessionCheck = now;
+        lastParticipantCount = participantCount;
       }
       state.textContent = current.draw_status === "open"
         ? savedSession
