@@ -47,6 +47,9 @@ input:focus { border-color: #839a8a; box-shadow: 0 0 0 3px rgba(67, 110, 85, .12
 .button-primary:hover:not(:disabled) { background: var(--green-dark); }
 .button-secondary { border: 1px solid var(--line); background: white; color: var(--ink); }
 .button-secondary:hover:not(:disabled) { background: var(--green-pale); }
+.button-emergency { border: 2px solid #9f2924; background: #b3322b; color: white; font-weight: 800; }
+.button-emergency:hover:not(:disabled) { background: #92251f; }
+.button-emergency:focus-visible { outline: 3px solid #e8a39f; outline-offset: 3px; }
 .button-wide { width: 100%; margin-top: 8px; }
 .button:disabled { cursor: not-allowed; opacity: .48; }
 .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--card); }

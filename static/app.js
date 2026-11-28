@@ -190,7 +190,7 @@ function renderJoin(drawId, inviteSecret) {
         <p id="join-error" class="message error" role="alert" hidden></p>
       </form>
       <div id="reset-participation-panel" hidden>
-        <button id="reset-participation" class="button button-secondary button-wide" type="button">Non sei ancora iscritto al gruppo? Premi qui per resettare la tua partecipazione</button>
+        <button id="reset-participation" class="button button-emergency button-wide" type="button">Emergenza: non riesci a iscriverti? Reimposta la sessione</button>
         <p class="tiny-note">Cancella solo la sessione salvata su questo browser e ricarica la pagina. Non rimuove un’iscrizione ancora presente nel gruppo.</p>
         <p id="reset-participation-error" class="message error" role="alert" hidden></p>
       </div>
