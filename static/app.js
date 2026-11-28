@@ -228,10 +228,12 @@ function renderJoin(drawId, inviteSecret) {
       message(document.querySelector("#reset-participation-error"), "Non è stato possibile cancellare la sessione del browser.");
       return;
     }
+    document.querySelector("#reset-participation-panel").hidden = true;
     window.location.reload();
   });
   let sessionChecked = false;
   let savedSession = null;
+  let hasStoredSession = false;
   let sessionWasReset = false;
   let lastSessionCheck = 0;
   let lastParticipantCount = null;
@@ -265,6 +267,7 @@ function renderJoin(drawId, inviteSecret) {
         const previousSession = savedSession;
         savedSession = null;
         const storedSession = getParticipantSession(drawId, null);
+        hasStoredSession = Boolean(storedSession);
         if (storedSession) {
           try {
             const participant = firstRow(await callRpc("santa_find_participant", {
@@ -280,7 +283,6 @@ function renderJoin(drawId, inviteSecret) {
             }
           } catch (reason) {
             if (!reason.message.includes("Codice personale non valido per questo gruppo.")) throw reason;
-            removeParticipantSession(drawId);
             sessionWasReset = true;
           }
         } else if (previousSession) {
@@ -303,7 +305,7 @@ function renderJoin(drawId, inviteSecret) {
       state.classList.toggle("draw-notice-complete", current.draw_status === "drawn");
       const resultLink = document.querySelector("#invite-result-link");
       document.querySelector(".returning-participant").hidden = Boolean(savedSession);
-      document.querySelector("#reset-participation-panel").hidden = !savedSession;
+      document.querySelector("#reset-participation-panel").hidden = !hasStoredSession;
       if (current.draw_status === "drawn" && savedSession) {
         resultLink.href = routeUrl("result", drawId, savedSession.participantId);
         resultLink.hidden = false;
@@ -338,6 +340,7 @@ function renderJoin(drawId, inviteSecret) {
       }));
       const sessionSaved = saveParticipantSession(drawId, result.participant_id, credentials.accessCode);
       savedSession = { participantId: result.participant_id, accessCode: credentials.accessCode };
+      hasStoredSession = true;
       sessionChecked = true;
       sessionWasReset = false;
       document.querySelector("#group-title").textContent = result.draw_title;
@@ -372,6 +375,7 @@ function renderJoin(drawId, inviteSecret) {
       }));
       const sessionSaved = saveParticipantSession(drawId, participant.participant_id, code);
       savedSession = { participantId: participant.participant_id, accessCode: code };
+      hasStoredSession = true;
       sessionChecked = true;
       sessionWasReset = false;
       if (participant.draw_status === "drawn") {
